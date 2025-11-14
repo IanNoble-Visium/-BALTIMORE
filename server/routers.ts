@@ -223,16 +223,36 @@ export const appRouter = router({
         )
         .mutation(async ({ input }) => {
           try {
-            const result = await importCsvData(input.rows, input.useAI);
+            if (!input.rows || !Array.isArray(input.rows)) {
+              throw new Error("Invalid input: rows must be an array");
+            }
+
+            if (input.rows.length === 0) {
+              throw new Error("No rows provided for import");
+            }
+
+            // Limit the number of rows to prevent server overload
+            const maxRows = 1000;
+            const rowsToProcess = input.rows.slice(0, maxRows);
+            
+            if (input.rows.length > maxRows) {
+              console.warn(`[Import] Limiting import to ${maxRows} rows (${input.rows.length} provided)`);
+            }
+
+            const result = await importCsvData(rowsToProcess, input.useAI);
             return {
               success: true,
               devicesInserted: result.devicesInserted,
               alertsInserted: result.alertsInserted,
               errors: result.errors,
+              warning: input.rows.length > maxRows 
+                ? `Only first ${maxRows} rows were processed (${input.rows.length} total provided)`
+                : undefined,
             };
           } catch (error: any) {
             console.error("[Import] CSV import failed:", error);
-            throw new Error(error?.message || "Failed to import CSV data");
+            const errorMessage = error?.message || String(error) || "Failed to import CSV data";
+            throw new Error(errorMessage);
           }
         }),
     }),

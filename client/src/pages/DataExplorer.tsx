@@ -197,6 +197,7 @@ export default function DataExplorer() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadHeaders, setUploadHeaders] = useState<string[]>([]);
   const [uploadRows, setUploadRows] = useState<Record<string, string>[]>([]);
+  const [uploadRowsFull, setUploadRowsFull] = useState<Record<string, string>[]>([]); // Store all rows for import
   const [uploadSchema, setUploadSchema] = useState<{ field: string; type: string }[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -273,7 +274,8 @@ export default function DataExplorer() {
         });
 
         setUploadHeaders(headers);
-        setUploadRows(rows.slice(0, 100));
+        setUploadRows(rows.slice(0, 100)); // Preview only first 100
+        setUploadRowsFull(rows); // Store all rows for import
         setUploadSchema(schema);
       } catch (err: any) {
         console.error("[Upload] Parse error", err);
@@ -810,9 +812,9 @@ export default function DataExplorer() {
                 <div className="space-y-3">
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <p className="text-xs text-muted-foreground">
-                      Detected {uploadRows.length.toLocaleString()} rows with
+                      Detected {uploadRowsFull.length > 0 ? uploadRowsFull.length : uploadRows.length} rows with
                       {" "}
-                      {uploadHeaders.length} columns. Showing first 100.
+                      {uploadHeaders.length} columns. {uploadRowsFull.length > 100 && `Showing first 100 of ${uploadRowsFull.length} for preview.`}
                     </p>
                     <div className="flex flex-wrap gap-2 text-[11px]">
                       {uploadSchema.map(col => (
@@ -847,19 +849,38 @@ export default function DataExplorer() {
                       variant="default"
                       className="w-full"
                       onClick={() => {
-                        if (uploadRows.length === 0) {
+                        const rowsToImport = uploadRowsFull.length > 0 ? uploadRowsFull : uploadRows;
+                        
+                        if (rowsToImport.length === 0) {
                           sonnerToast.error("No data to import");
                           return;
                         }
+                        
+                        // Validate rows before sending
+                        const validRows = rowsToImport.filter(row => {
+                          if (!row || typeof row !== 'object') return false;
+                          // Ensure row has at least one property
+                          return Object.keys(row).length > 0;
+                        });
+                        
+                        if (validRows.length === 0) {
+                          sonnerToast.error("No valid rows to import");
+                          return;
+                        }
+                        
+                        if (validRows.length !== rowsToImport.length) {
+                          sonnerToast.warning(`Filtered ${rowsToImport.length - validRows.length} invalid rows`);
+                        }
+                        
                         setIsImporting(true);
                         setImportResult(null);
                         setUploadError(null);
                         importMutation.mutate({
-                          rows: uploadRows,
+                          rows: validRows,
                           useAI,
                         });
                       }}
-                      disabled={isImporting || uploadRows.length === 0}
+                      disabled={isImporting || (uploadRowsFull.length === 0 && uploadRows.length === 0)}
                     >
                       {isImporting ? (
                         <>
