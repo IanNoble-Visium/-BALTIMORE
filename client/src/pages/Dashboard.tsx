@@ -26,9 +26,15 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Redirect to landing if not authenticated
+  // Redirect to landing if not authenticated.
+  // In demo mode (no OAuth config), allow access to the dashboard
+  // even when there is no authenticated backend user.
   useEffect(() => {
-    if (!user && !loading) {
+    const hasOAuthConfig = Boolean(
+      import.meta.env.VITE_OAUTH_PORTAL_URL && import.meta.env.VITE_APP_ID,
+    );
+
+    if (hasOAuthConfig && !user && !loading) {
       setLocation("/");
     }
   }, [user, loading, setLocation]);
