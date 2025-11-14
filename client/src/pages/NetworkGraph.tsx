@@ -74,10 +74,10 @@ export default function NetworkGraph() {
   const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [nodeFilter, setNodeFilter] = useState<Set<NodeType>>(
-    new Set(["Control Station", "Device", "Sensor"])
+    new Set<NodeType>(["Control Station", "Device", "Sensor"])
   );
   const [edgeFilter, setEdgeFilter] = useState<Set<EdgeType>>(
-    new Set(["Primary Link", "Backup Link", "Data Flow"])
+    new Set<EdgeType>(["Primary Link", "Backup Link", "Data Flow"])
   );
   const [zoomLevel, setZoomLevel] = useState(1);
 
@@ -315,16 +315,16 @@ export default function NetworkGraph() {
         setSelectedNode(d);
       })
       .on("mouseover", function (event, d) {
-        d3.select(this).attr("r", (d) => {
-          if (d.type === "Control Station") return 16;
-          if (d.type === "Device") return 10;
+        d3.select(this).attr("r", (n: any) => {
+          if (n.type === "Control Station") return 16;
+          if (n.type === "Device") return 10;
           return 8;
         });
       })
       .on("mouseout", function (event, d) {
-        d3.select(this).attr("r", (d) => {
-          if (d.type === "Control Station") return 12;
-          if (d.type === "Device") return 8;
+        d3.select(this).attr("r", (n: any) => {
+          if (n.type === "Control Station") return 12;
+          if (n.type === "Device") return 8;
           return 6;
         });
       });
