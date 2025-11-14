@@ -52,6 +52,14 @@ const severityColorClasses: Record<Alert["severity"], string> = {
   low: "border-emerald-500/60 bg-emerald-500/15 text-emerald-100",
 };
 
+const severityLevels: Alert["severity"][] = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+];
+
+
 const severityRank: Record<Alert["severity"], number> = {
   low: 1,
   medium: 2,
@@ -92,6 +100,24 @@ export default function DataTables() {
       return true;
     });
   }, [alerts, severity, type, dateRange]);
+
+  const severitySummary = useMemo(() => {
+    const counts: Record<Alert["severity"], number> = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+    };
+
+    for (const alert of filteredAlerts) {
+      counts[alert.severity] += 1;
+    }
+
+    return {
+      total: filteredAlerts.length,
+      counts,
+    };
+  }, [filteredAlerts]);
 
   const columns: DataTableColumn<Alert>[] = useMemo(
     () => [
@@ -158,9 +184,14 @@ export default function DataTables() {
         <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <CardTitle className="text-lg">Alert Data Tables</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Sort, filter, and export Baltimore alert history.
-            </p>
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <p>Sort, filter, and export Baltimore alert history.</p>
+              <p className="font-medium">
+                {alertsQuery.isLoading
+                  ? "Fetching latest alerts…"
+                  : `${filteredAlerts.length.toLocaleString()} alerts matching current filters`}
+              </p>
+            </div>
           </div>
           <Button
             size="sm"
@@ -313,6 +344,41 @@ export default function DataTables() {
               </PopoverContent>
             </Popover>
           </div>
+
+          {severitySummary.total > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="mr-1 font-semibold uppercase tracking-wide text-[10px]">
+                Severity distribution
+              </span>
+              {severityLevels.map(level => {
+                const count = severitySummary.counts[level];
+                const pct =
+                  severitySummary.total > 0
+                    ? Math.round((count / severitySummary.total) * 100)
+                    : 0;
+
+                return (
+                  <Badge
+                    key={level}
+                    variant="secondary"
+                    className={cn(
+                      "flex items-center gap-1 border px-2 py-0.5",
+                      severityColorClasses[level],
+                    )}
+                  >
+                    <span className="capitalize">{level}</span>
+                    <span className="font-mono">
+                      {count.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] opacity-80">
+                      ({pct}%)
+                    </span>
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+
 
           <SortableDataTable
             data={filteredAlerts}
