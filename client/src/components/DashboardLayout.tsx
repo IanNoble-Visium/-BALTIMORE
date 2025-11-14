@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Zap, Database, BarChart3 } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Zap, Database, BarChart3, MapPin, Network } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -29,6 +29,8 @@ import { Button } from "./ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+  { icon: MapPin, label: "Interactive Map", path: "/map" },
+  { icon: Network, label: "Network Graph", path: "/network" },
   { icon: Zap, label: "Ubicell UGU", path: "/ubicell" },
   { icon: Database, label: "Data Explorer", path: "/explorer" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },

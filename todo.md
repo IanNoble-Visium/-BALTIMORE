@@ -47,13 +47,13 @@
 - [ ] Add animated counter effects
 
 ## Interactive Map
-- [ ] Set up Mapbox GL / Leaflet integration
-- [ ] Create Baltimore-focused map with proper zoom
-- [ ] Add device markers with status colors
-- [ ] Implement heatmap overlay for incident density
-- [ ] Add clustering for overlapping nodes
-- [ ] Create click-to-drill-down functionality
-- [ ] Add device details modal
+- [x] Set up Mapbox GL / Leaflet integration
+- [x] Create Baltimore-focused map with proper zoom
+- [x] Add device markers with status colors
+- [x] Implement heatmap overlay for incident density
+- [x] Add clustering for overlapping nodes
+- [x] Create click-to-drill-down functionality
+- [x] Add device details modal
 
 ## Network Relationship Graph
 - [ ] Create force-directed graph with D3.js

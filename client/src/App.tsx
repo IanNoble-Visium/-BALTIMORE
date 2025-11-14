@@ -10,6 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import Ubicell from "./pages/Ubicell";
 import DataExplorer from "./pages/DataExplorer";
 import Analytics from "./pages/Analytics";
+import InteractiveMap from "./pages/InteractiveMap";
+import NetworkGraph from "./pages/NetworkGraph";
 
 function DashboardRoute() {
   return (
@@ -36,10 +38,26 @@ function DataExplorerRoute() {
   );
 }
 
+function InteractiveMapRoute() {
+  return (
+    <DashboardLayout>
+      <InteractiveMap />
+    </DashboardLayout>
+  );
+}
+
 function AnalyticsRoute() {
   return (
     <DashboardLayout>
       <Analytics />
+    </DashboardLayout>
+  );
+}
+
+function NetworkGraphRoute() {
+  return (
+    <DashboardLayout>
+      <NetworkGraph />
     </DashboardLayout>
   );
 }
@@ -50,9 +68,11 @@ function Router() {
     <Switch>
       <Route path={"/"} component={Landing} />
       <Route path={"/dashboard"} component={DashboardRoute} />
+      <Route path={"/map"} component={InteractiveMapRoute} />
       <Route path={"/ubicell"} component={UbicellRoute} />
       <Route path={"/explorer"} component={DataExplorerRoute} />
       <Route path={"/analytics"} component={AnalyticsRoute} />
+      <Route path={"/network"} component={NetworkGraphRoute} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

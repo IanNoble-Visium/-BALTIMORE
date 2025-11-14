@@ -14,6 +14,21 @@ export interface MapboxMapProps {
    * Used by the dashboard to open drill-down modals.
    */
   onDeviceClick?: (deviceId: string) => void;
+  /**
+   * Control visibility of the heatmap layer.
+   * Defaults to true for a cinematic overview.
+   */
+  showHeatmap?: boolean;
+  /**
+   * Control visibility of the clustering layers (bubbles + counts).
+   * Defaults to true.
+   */
+  showClusters?: boolean;
+  /**
+   * Called once the underlying Mapbox map has finished loading.
+   * Lets parent components trigger fit-to-bounds / reset-view behaviors.
+   */
+  onMapReady?: (map: mapboxgl.Map) => void;
 }
 
 /**
@@ -26,7 +41,14 @@ export interface MapboxMapProps {
  * - Circle layer styled by node status
  * - Click clusters to zoom in, click single nodes to drill down
  */
-export function MapboxMap({ className, devices, onDeviceClick }: MapboxMapProps) {
+export function MapboxMap({
+  className,
+  devices,
+  onDeviceClick,
+  showHeatmap = true,
+  showClusters = true,
+  onMapReady,
+}: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -352,6 +374,7 @@ export function MapboxMap({ className, devices, onDeviceClick }: MapboxMapProps)
             duration: 3000,
             essential: true,
           });
+
           return;
         }
 
@@ -373,7 +396,11 @@ export function MapboxMap({ className, devices, onDeviceClick }: MapboxMapProps)
       // Kick off a single cinematic flyover shortly after load
       setTimeout(runFlyover, 1200);
 
+      // Mark map as ready for updates and notify parent
       setMapLoaded(true);
+      if (onMapReady) {
+        onMapReady(map);
+      }
     });
 
     mapRef.current = map;
@@ -384,6 +411,29 @@ export function MapboxMap({ className, devices, onDeviceClick }: MapboxMapProps)
       setMapLoaded(false);
     };
   }, []);
+
+  // Toggle heatmap visibility based on prop
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (map.getLayer("devices-heat")) {
+      map.setLayoutProperty("devices-heat", "visibility", showHeatmap ? "visible" : "none");
+    }
+  }, [showHeatmap, mapLoaded]);
+
+  // Toggle cluster layers visibility based on prop
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const visibility = showClusters ? "visible" : "none";
+    ["devices-clusters", "devices-cluster-count"].forEach(layerId => {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, "visibility", visibility);
+      }
+    });
+  }, [showClusters, mapLoaded]);
 
   // Update GeoJSON source whenever devices change
   useEffect(() => {

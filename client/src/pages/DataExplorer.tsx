@@ -21,7 +21,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { Upload, Download, Filter, Search, Database, AlertTriangle } from "lucide-react";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import { Line, LineChart, XAxis, YAxis } from "recharts";
+import { Upload, Download, Filter, Search, Database, AlertTriangle, X } from "lucide-react";
 
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return;
@@ -66,6 +73,12 @@ export default function DataExplorer() {
   const [deviceNetwork, setDeviceNetwork] = useState("ALL");
   const [devicePage, setDevicePage] = useState(1);
 
+  // Alert filters
+  const [alertSearch, setAlertSearch] = useState("");
+  const [alertSeverity, setAlertSeverity] = useState("ALL");
+  const [alertStatus, setAlertStatus] = useState("ALL");
+  const [alertDateRange, setAlertDateRange] = useState<"ALL" | "24H" | "7D">("ALL");
+  const [alertPage, setAlertPage] = useState(1);
 
   const DEVICE_PAGE_SIZE = 25;
   const ALERT_PAGE_SIZE = 25;
@@ -93,12 +106,61 @@ export default function DataExplorer() {
       .sort((a, b) => (a.deviceId || "").localeCompare(b.deviceId || ""));
   }, [devicesQuery.data, deviceStatus, deviceNetwork, deviceSearch]);
 
+  // Sparkline data for daily alert counts
+  const sparklineData = useMemo(() => {
+    const alerts = alertsQuery.data ?? [];
+    const now = new Date();
+    const days = 14; // Last 14 days for sparkline
+    const buckets = new Map<string, number>();
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const key = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      buckets.set(key, 0);
+    }
+
+    alerts.forEach(alert => {
+      if (!alert.timestamp) return;
+      const alertDate = new Date(alert.timestamp);
+      const daysDiff = Math.floor((now.getTime() - alertDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff >= 0 && daysDiff < days) {
+        const key = alertDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        buckets.set(key, (buckets.get(key) || 0) + 1);
+      }
+    });
+
+    return Array.from(buckets.entries()).map(([date, count]) => ({ date, count }));
+  }, [alertsQuery.data]);
+
+  const sparklineConfig: ChartConfig = {
+    count: {
+      label: "Alerts",
+      color: "#FFC72C",
+    },
+  };
+
   const filteredAlerts = useMemo(() => {
     const alerts = alertsQuery.data ?? [];
+    const now = new Date();
+    
     return alerts
       .filter(a => {
+        // Severity filter
         if (alertSeverity !== "ALL" && a.severity !== alertSeverity) return false;
+        
+        // Status filter
         if (alertStatus !== "ALL" && a.status !== alertStatus) return false;
+        
+        // Date range filter
+        if (alertDateRange !== "ALL" && a.timestamp) {
+          const alertDate = new Date(a.timestamp);
+          const hoursDiff = (now.getTime() - alertDate.getTime()) / (1000 * 60 * 60);
+          if (alertDateRange === "24H" && hoursDiff > 24) return false;
+          if (alertDateRange === "7D" && hoursDiff > 24 * 7) return false;
+        }
+        
+        // Search filter
         if (alertSearch.trim()) {
           const term = alertSearch.toLowerCase();
           return (
@@ -109,8 +171,12 @@ export default function DataExplorer() {
         }
         return true;
       })
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [alertsQuery.data, alertSeverity, alertStatus, alertSearch]);
+      .sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeB - timeA;
+      });
+  }, [alertsQuery.data, alertSeverity, alertStatus, alertSearch, alertDateRange]);
 
   const devicePageCount = Math.max(1, Math.ceil(filteredDevices.length / DEVICE_PAGE_SIZE));
   const alertPageCount = Math.max(1, Math.ceil(filteredAlerts.length / ALERT_PAGE_SIZE));
@@ -390,15 +456,97 @@ export default function DataExplorer() {
         {/* Alerts Tab */}
         <TabsContent value="alerts" className="mt-4 space-y-4">
           <Card>
-            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <CardTitle>Smart City Alerts</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {alertsQuery.isLoading
-                    ? "Loading alerts…"
-                    : `${filteredAlerts.length.toLocaleString()} alerts (page ${alertPage} of ${alertPageCount})`}
-                </p>
+            <CardHeader className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <CardTitle>Smart City Alerts</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {alertsQuery.isLoading
+                      ? "Loading alerts…"
+                      : `${filteredAlerts.length.toLocaleString()} alerts (page ${alertPage} of ${alertPageCount})`}
+                  </p>
+                </div>
+                {/* Sparkline Chart */}
+                {sparklineData.length > 0 && (
+                  <div className="w-full md:w-48 h-16">
+                    <ChartContainer config={sparklineConfig}>
+                      <LineChart data={sparklineData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                        <XAxis dataKey="date" hide />
+                        <YAxis hide />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#FFC72C"
+                          strokeWidth={2}
+                          dot={false}
+                          animationDuration={1000}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  </div>
+                )}
               </div>
+              
+              {/* Saved Filters */}
+              <div className="flex flex-wrap gap-2 items-center pt-2 border-t">
+                <span className="text-xs text-muted-foreground mr-1">Quick Filters:</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setAlertSeverity("critical");
+                    setAlertDateRange("24H");
+                    setAlertStatus("ALL");
+                    setAlertPage(1);
+                  }}
+                >
+                  Critical 24h
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setAlertStatus("active");
+                    setAlertDateRange("7D");
+                    setAlertSeverity("ALL");
+                    setAlertPage(1);
+                  }}
+                >
+                  Active 7 days
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setAlertSeverity("high");
+                    setAlertDateRange("24H");
+                    setAlertStatus("ALL");
+                    setAlertPage(1);
+                  }}
+                >
+                  High+ 24h
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setAlertSeverity("ALL");
+                    setAlertStatus("ALL");
+                    setAlertDateRange("ALL");
+                    setAlertSearch("");
+                    setAlertPage(1);
+                  }}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
+              
               <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -449,13 +597,30 @@ export default function DataExplorer() {
                     <SelectItem value="acknowledged">Acknowledged</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select
+                  value={alertDateRange}
+                  onValueChange={val => {
+                    setAlertPage(1);
+                    setAlertDateRange(val as "ALL" | "24H" | "7D");
+                  }}
+                >
+                  <SelectTrigger className="w-[120px] h-9 text-xs">
+                    <Filter className="mr-1 h-3 w-3" />
+                    <SelectValue placeholder="Range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Time</SelectItem>
+                    <SelectItem value="24H">Last 24h</SelectItem>
+                    <SelectItem value="7D">Last 7 days</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-9 text-xs"
                   onClick={() =>
                     downloadCsv("baltimore_alerts.csv", filteredAlerts.map(a => ({
-                      timestamp: a.timestamp.toISOString(),
+                      timestamp: a.timestamp ? new Date(a.timestamp).toISOString() : "",
                       deviceId: a.deviceId,
                       alertType: a.alertType,
                       severity: a.severity,
@@ -500,7 +665,7 @@ export default function DataExplorer() {
                       alertPageItems.map(alert => (
                         <TableRow key={alert.id}>
                           <TableCell className="text-[11px] text-muted-foreground">
-                            {new Date(alert.timestamp).toLocaleString()}
+                            {alert.timestamp ? new Date(alert.timestamp).toLocaleString() : "–"}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
                             {alert.deviceId}
