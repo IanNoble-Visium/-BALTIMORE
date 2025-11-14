@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Table,
@@ -35,7 +35,9 @@ type SortableDataTableProps<T> = {
   pageSizeOptions?: number[];
   initialPageSize?: number;
   emptyMessage?: string;
+  onSortedDataChange?: (rows: T[]) => void;
 };
+
 
 export function SortableDataTable<T>({
   data,
@@ -44,6 +46,7 @@ export function SortableDataTable<T>({
   pageSizeOptions = [50, 100, 500],
   initialPageSize = 50,
   emptyMessage = "No data to display.",
+  onSortedDataChange,
 }: SortableDataTableProps<T>) {
   const [sortColumnId, setSortColumnId] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -75,10 +78,23 @@ export function SortableDataTable<T>({
     return sortDirection === "asc" ? sorted : sorted.reverse();
   }, [data, columns, sortColumnId, sortDirection]);
 
+  // Reset to first page when the underlying data changes
+  useEffect(() => {
+    setPage(1);
+  }, [data]);
+
+  // Let parents observe the sorted dataset (for CSV export, etc.)
+  useEffect(() => {
+    if (onSortedDataChange) {
+      onSortedDataChange(sortedData);
+    }
+  }, [sortedData, onSortedDataChange]);
+
   const pageCount = Math.max(1, Math.ceil(sortedData.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const start = (currentPage - 1) * pageSize;
   const pageItems = sortedData.slice(start, start + pageSize);
+
 
   const handleHeaderClick = (columnId: string, sortable: boolean) => {
     if (!sortable) return;

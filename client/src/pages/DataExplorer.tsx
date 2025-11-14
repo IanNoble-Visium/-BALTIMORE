@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { Alert, Device } from "@shared/types";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,10 +29,24 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Line, LineChart, XAxis, YAxis } from "recharts";
-import { Upload, Download, Filter, Search, Database, AlertTriangle, X, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  Upload,
+  Download,
+  Filter,
+  Search,
+  Database,
+  AlertTriangle,
+  X,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import {
+  SortableDataTable,
+  type DataTableColumn,
+} from "@/components/SortableDataTable";
 
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return;
@@ -74,17 +89,16 @@ export default function DataExplorer() {
   const [deviceSearch, setDeviceSearch] = useState("");
   const [deviceStatus, setDeviceStatus] = useState("ALL");
   const [deviceNetwork, setDeviceNetwork] = useState("ALL");
-  const [devicePage, setDevicePage] = useState(1);
 
   // Alert filters
   const [alertSearch, setAlertSearch] = useState("");
   const [alertSeverity, setAlertSeverity] = useState("ALL");
   const [alertStatus, setAlertStatus] = useState("ALL");
   const [alertDateRange, setAlertDateRange] = useState<"ALL" | "24H" | "7D">("ALL");
-  const [alertPage, setAlertPage] = useState(1);
 
-  const DEVICE_PAGE_SIZE = 25;
-  const ALERT_PAGE_SIZE = 25;
+  // Track the current sorted order for CSV export
+  const [sortedDevices, setSortedDevices] = useState<Device[]>([]);
+  const [sortedAlerts, setSortedAlerts] = useState<Alert[]>([]);
 
   const filteredDevices = useMemo(() => {
     const devices = devicesQuery.data ?? [];
@@ -181,17 +195,6 @@ export default function DataExplorer() {
       });
   }, [alertsQuery.data, alertSeverity, alertStatus, alertSearch, alertDateRange]);
 
-  const devicePageCount = Math.max(1, Math.ceil(filteredDevices.length / DEVICE_PAGE_SIZE));
-  const alertPageCount = Math.max(1, Math.ceil(filteredAlerts.length / ALERT_PAGE_SIZE));
-
-  const devicePageItems = filteredDevices.slice(
-    (devicePage - 1) * DEVICE_PAGE_SIZE,
-    devicePage * DEVICE_PAGE_SIZE,
-  );
-  const alertPageItems = filteredAlerts.slice(
-    (alertPage - 1) * ALERT_PAGE_SIZE,
-    alertPage * ALERT_PAGE_SIZE,
-  );
 
   // File upload preview state
   const [uploadError, setUploadError] = useState<string | null>(null);
