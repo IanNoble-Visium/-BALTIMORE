@@ -1,8 +1,8 @@
 import express from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "../server/_core/oauth";
-import { appRouter } from "../server/routers";
-import { createContext } from "../server/_core/context";
+import { registerOAuthRoutes } from "../dist/server/oauth.js";
+import { appRouter } from "../dist/server/routers.js";
+import { createContext } from "../dist/server/context.js";
 
 // This file is the Vercel Serverless Function entrypoint.
 // It exposes the same tRPC + OAuth routes as the local Express server,

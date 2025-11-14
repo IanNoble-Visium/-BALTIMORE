@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx watch server/_core/index.ts",
-    "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && esbuild server/routers.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server/routers.js && esbuild server/_core/context.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server/context.js && esbuild server/_core/oauth.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server/oauth.js",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
