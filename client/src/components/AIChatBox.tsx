@@ -1,8 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { Loader2, Send, User, Sparkles } from "lucide-react";
+import { Loader2, Send, User, Sparkles, Wand2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Streamdown } from "streamdown";
 
@@ -121,6 +128,7 @@ export function AIChatBox({
   suggestedPrompts,
 }: AIChatBoxProps) {
   const [input, setInput] = useState("");
+  const [enhancedPromptOpen, setEnhancedPromptOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputAreaRef = useRef<HTMLFormElement>(null);
@@ -186,6 +194,47 @@ export function AIChatBox({
       handleSubmit(e);
     }
   };
+
+  const handleEnhancedPromptSelect = (prompt: string) => {
+    setInput(prompt);
+    setEnhancedPromptOpen(false);
+    textareaRef.current?.focus();
+  };
+
+  const enhancedPromptTemplates = [
+    {
+      category: "Device Health",
+      prompts: [
+        "Analyze the overall device health status and identify any patterns in device failures.",
+        "Which devices have been offline the longest and what might be causing their issues?",
+        "Compare device performance across different network types (LTE, LoRaWAN, etc.).",
+      ],
+    },
+    {
+      category: "Alert Analysis",
+      prompts: [
+        "What are the most critical alerts right now and what actions should be taken?",
+        "Analyze alert trends over the past week and identify any emerging issues.",
+        "Which alert types are most common and what do they indicate about system health?",
+      ],
+    },
+    {
+      category: "Performance Insights",
+      prompts: [
+        "How can we improve feeder efficiency based on current KPI data?",
+        "What are the key performance indicators showing and what do they mean?",
+        "Identify opportunities to optimize network performance and reduce downtime.",
+      ],
+    },
+    {
+      category: "Predictive Analysis",
+      prompts: [
+        "Based on current trends, what issues might we face in the next 24 hours?",
+        "Which devices are at risk of failure based on their burn hours and status?",
+        "What maintenance actions should be prioritized based on device health data?",
+      ],
+    },
+  ];
 
   return (
     <div
@@ -318,6 +367,17 @@ export function AIChatBox({
           rows={1}
         />
         <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          onClick={() => setEnhancedPromptOpen(true)}
+          disabled={isLoading}
+          className="shrink-0 h-[38px] w-[38px]"
+          title="Enhanced Prompts"
+        >
+          <Wand2 className="size-4 text-primary" />
+        </Button>
+        <Button
           type="submit"
           size="icon"
           disabled={!input.trim() || isLoading}
@@ -330,6 +390,41 @@ export function AIChatBox({
           )}
         </Button>
       </form>
+
+      {/* Enhanced Prompt Dialog */}
+      <Dialog open={enhancedPromptOpen} onOpenChange={setEnhancedPromptOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-primary" />
+              Enhanced Prompts
+            </DialogTitle>
+            <DialogDescription>
+              Select a prompt template to get more detailed insights about your Baltimore Smart City deployment.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 mt-4">
+            {enhancedPromptTemplates.map((category, categoryIndex) => (
+              <div key={categoryIndex} className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {category.category}
+                </h3>
+                <div className="space-y-2">
+                  {category.prompts.map((prompt, promptIndex) => (
+                    <button
+                      key={promptIndex}
+                      onClick={() => handleEnhancedPromptSelect(prompt)}
+                      className="w-full text-left rounded-lg border border-border bg-card px-4 py-3 text-sm transition-colors hover:bg-accent hover:border-primary/50"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

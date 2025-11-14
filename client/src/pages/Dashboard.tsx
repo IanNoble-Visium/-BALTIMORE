@@ -563,7 +563,7 @@ export default function Dashboard() {
                           return (
                             <Cell
                               key={`cell-${index}`}
-                              fill={BALTIMORE_COLORS[colorKey]}
+                              fill={`var(--color-${colorKey})`}
                               stroke="#020617"
                               strokeWidth={1}
                             />
@@ -610,7 +610,7 @@ export default function Dashboard() {
                         {severityDistribution.map((entry, index) => (
                           <Cell
                             key={`bar-${index}`}
-                            fill={BALTIMORE_COLORS[entry.severity.toLowerCase()]}
+                            fill={`var(--color-${entry.severity.toLowerCase()})`}
                           />
                         ))}
                       </Bar>
