@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { APP_TITLE } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Shield, Zap, Network, Eye } from "lucide-react";
 
 /**
@@ -16,14 +16,107 @@ import { Loader2, Shield, Zap, Network, Eye } from "lucide-react";
  * - Baltimore branding with flag colors
  * - Smooth transitions and animations
  */
+const VIDEO_SOURCES: string[] = [
+  "/videos/_10_smart_202511140241_zlw1p.mp4",
+  "/videos/_11_baltimore_202511140241_hvabn.mp4",
+  "/videos/_12_data_202511140241_tse26.mp4",
+  "/videos/_13_camden_202511140241_a0g2m.mp4",
+  "/videos/_14_streetlevel_202511140241_qx0vh.mp4",
+  "/videos/_15_digital_202511140242_pe6zz.mp4",
+  "/videos/_16_network_202511140242_b0dr5.mp4",
+  "/videos/_17_smart_202511140242_7p29c.mp4",
+  "/videos/_18_traffic_202511140242_173ta.mp4",
+  "/videos/_19_sensor_202511140242_2pfv9.mp4",
+  "/videos/_1_baltimore_202511140217_duiow.mp4",
+  "/videos/_1_baltimore_202511140217_dztg9.mp4",
+  "/videos/_20_city_202511140242_l8b24.mp4",
+  "/videos/_21_emergency_202511140242_7u9pc.mp4",
+  "/videos/_22_weather_202511140242_1ysz1.mp4",
+  "/videos/_23_pedestrian_202511140242_6sgt5.mp4",
+  "/videos/_23_pedestrian_202511140242_jlzd7.mp4",
+  "/videos/_24_infrastructure_202511140242_9c9bh.mp4",
+  "/videos/_25_network_202511140242_ri4ye.mp4",
+  "/videos/_26_solar_202511140242_gfnim.mp4",
+  "/videos/_27_realtime_202511140242_9x8vs.mp4",
+  "/videos/_28_maintenance_202511140242_n34ls.mp4",
+  "/videos/_29_thermal_202511140242_8vk6c.mp4",
+  "/videos/_2_baltimore_202511140217_ti1bm.mp4",
+  "/videos/_2_baltimore_202511140217_zhlsy.mp4",
+  "/videos/_30_5g_202511140242_eb7tk.mp4",
+  "/videos/_31_city_202511140243_toeum.mp4",
+  "/videos/_33_smart_202511140243_d72v0.mp4",
+  "/videos/_33_smart_202511140301_urpjg.mp4",
+  "/videos/_34_power_202511140301_zylns.mp4",
+  "/videos/_35_community_202511140301_yqw76.mp4",
+  "/videos/_36_ubicell_202511140301_0lw20.mp4",
+  "/videos/_37_device_202511140301_chosg.mp4",
+  "/videos/_37_device_202511140301_cipn0.mp4",
+  "/videos/_38_led_202511140301_jp8c0.mp4",
+  "/videos/_39_antenna_202511140301_rxnp0.mp4",
+  "/videos/_3_battle_202511140217_69ge9.mp4",
+  "/videos/_3_battle_202511140217_ms3hi.mp4",
+  "/videos/_40_device_202511140301_va956.mp4",
+  "/videos/_41_exploded_202511140301_uk8z0.mp4",
+  "/videos/_42_data_202511140301_n6me4.mp4",
+  "/videos/_43_weather_202511140301_b5tm7.mp4",
+  "/videos/_44_night_202511140301_rpvqg.mp4",
+  "/videos/_45_multidevice_202511140301_1rsn5.mp4",
+  "/videos/_46_cybersecurity_202511140302_exqn5.mp4",
+  "/videos/_47_historical_202511140302_iw0sk.mp4",
+  "/videos/_48_sunrise_202511140302_echfv.mp4",
+  "/videos/_49_collaborative_202511140302_rnvi6.mp4",
+  "/videos/_4_smart_202511140217_gs3bw.mp4",
+  "/videos/_4_smart_202511140218_8my5x.mp4",
+  "/videos/_50_future_202511140302_zh61z.mp4",
+  "/videos/_5_city_202511140217_s0mwv.mp4",
+  "/videos/_5_city_202511140218_979q0.mp4",
+  "/videos/_6_inner_202511140217_o384o.mp4",
+  "/videos/_6_inner_202511140218_ti1bm.mp4",
+  "/videos/_7_technology_202511140218_k2bdj.mp4",
+  "/videos/_8_fiber_202511140218_oaw7q.mp4",
+  "/videos/_9_baltimore_202511140241_eq6b7.mp4",
+];
+
+
 export default function Landing() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("admin@visium.com");
   const [password, setPassword] = useState("Baltimore2025");
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isFadingOut, setIsFadingOut] = useState(false);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Redirect to dashboard if already authenticated
+  const handleVideoLoaded = () => {
+    setVideoLoaded(true);
+    setIsFadingOut(false);
+  };
+
+  const handleVideoEnd = () => {
+    setIsFadingOut(true);
+  };
+
+  const handleVideoTransitionEnd = () => {
+    if (!isFadingOut) return;
+
+    setCurrentVideoIndex((prev) => (prev + 1) % VIDEO_SOURCES.length);
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.currentTime = 0;
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.then === "function") {
+      playPromise.catch(() => {
+        // Autoplay might be blocked; ignore for background video.
+      });
+    }
+  }, [currentVideoIndex]);
+
   useEffect(() => {
     if (user && !loading) {
       setLocation("/dashboard");
@@ -48,23 +141,33 @@ export default function Landing() {
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Video Background */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-black/95 to-black/90 z-10" />
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className={`w-full h-full object-cover transition-opacity duration-1000 ${
-            videoLoaded ? "opacity-30" : "opacity-0"
-          }`}
-          onLoadedData={() => setVideoLoaded(true)}
-        >
-          {/* Placeholder for b-roll video - user will provide actual video */}
-          <source src="/videos/baltimore-city-broll.mp4" type="video/mp4" />
-        </video>
+      <div className="absolute inset-0 z-0 overflow-hidden">
         {/* Fallback gradient background if video doesn't load */}
         <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black" />
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1500ms] ${
+            videoLoaded && !isFadingOut ? "opacity-30" : "opacity-0"
+          }`}
+          onLoadedData={handleVideoLoaded}
+          onEnded={handleVideoEnd}
+          onTransitionEnd={handleVideoTransitionEnd}
+        >
+          <source src={VIDEO_SOURCES[currentVideoIndex]} type="video/mp4" />
+        </video>
+        {/* Preload the next video off-screen for smoother transitions */}
+        <video className="hidden" preload="auto" muted>
+          <source
+            src={VIDEO_SOURCES[(currentVideoIndex + 1) % VIDEO_SOURCES.length]}
+            type="video/mp4"
+          />
+        </video>
+        {/* Gradient overlay on top of video */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black via-black/95 to-black/90 z-10" />
       </div>
 
       {/* Content */}
