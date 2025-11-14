@@ -264,14 +264,28 @@ export default function Dashboard() {
   };
 
   // Seed data if needed (for demo purposes)
-  const seedDataMutation = trpc.admin.seedData.useMutation();
-
+  const seedDataMutation = trpc.admin.seedData.useMutation({
+    onSuccess: data => {
+      console.log("[Dashboard] Seed data mutation succeeded:", data);
+    },
+    onError: error => {
+      console.error("[Dashboard] Seed data mutation failed:", error);
+    },
+  });
+  
   const handleSeedData = async () => {
+    console.log("[Dashboard] Seed Database button clicked", {
+      user,
+      isPending: seedDataMutation.isPending,
+    });
+
     try {
-      await seedDataMutation.mutateAsync();
-      window.location.reload();
+      const result = await seedDataMutation.mutateAsync();
+      console.log("[Dashboard] seedDataMutation.mutateAsync() resolved:", result);
+      // Intentionally not reloading the page so we can inspect logs and state after seeding.
+      // window.location.reload();
     } catch (error) {
-      console.error("Error seeding data:", error);
+      console.error("[Dashboard] Error seeding data in handleSeedData:", error);
     }
   };
 
@@ -638,25 +652,18 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {devices && devices.length > 0 ? (
-                <MapboxMap
-                  className="mt-2"
-                  devices={devices}
-                  onDeviceClick={id => {
-                    setSelectedDeviceId(id);
-                    setDeviceDialogOpen(true);
-                  }}
-                />
-              ) : (
-                <div className="h-[500px] bg-muted/20 rounded-lg flex items-center justify-center border border-border">
-                  <div className="text-center space-y-2">
-                    <MapPin className="h-12 w-12 text-muted-foreground mx-auto" />
-                    <p className="text-muted-foreground">Waiting for device data…</p>
-                    <p className="text-sm text-muted-foreground">
-                      {devicesLoading ? "Loading devices from Baltimore…" : "No devices found"}
-                    </p>
-                  </div>
-                </div>
+              <MapboxMap
+                className="mt-2"
+                devices={devices ?? []}
+                onDeviceClick={id => {
+                  setSelectedDeviceId(id);
+                  setDeviceDialogOpen(true);
+                }}
+              />
+              {(!devices || devices.length === 0) && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Seed the database to see Ubicell devices plotted on the 3D Baltimore map.
+                </p>
               )}
             </CardContent>
           </Card>

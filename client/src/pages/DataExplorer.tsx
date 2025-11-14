@@ -66,10 +66,6 @@ export default function DataExplorer() {
   const [deviceNetwork, setDeviceNetwork] = useState("ALL");
   const [devicePage, setDevicePage] = useState(1);
 
-  const [alertSearch, setAlertSearch] = useState("");
-  const [alertSeverity, setAlertSeverity] = useState("ALL");
-  const [alertStatus, setAlertStatus] = useState("ALL");
-  const [alertPage, setAlertPage] = useState(1);
 
   const DEVICE_PAGE_SIZE = 25;
   const ALERT_PAGE_SIZE = 25;

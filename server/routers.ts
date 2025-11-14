@@ -178,16 +178,38 @@ export const appRouter = router({
       }),
   }),
 
-  // Admin functions
-  admin: router({
-    seedData: protectedProcedure.mutation(async ({ ctx }) => {
-      if (ctx.user.role !== 'admin') {
-        throw new Error('Unauthorized');
-      }
-      await seedMockData();
-      return { success: true };
+    // Admin functions
+    admin: router({
+      seedData: protectedProcedure.mutation(async ({ ctx }) => {
+        console.log("[Admin] seedData called", {
+          user: ctx.user
+            ? {
+                openId: ctx.user.openId,
+                email: ctx.user.email,
+                role: ctx.user.role,
+              }
+            : null,
+        });
+  
+        try {
+          if (!ctx.user || ctx.user.role !== "admin") {
+            console.warn("[Admin] seedData unauthorized", {
+              hasUser: Boolean(ctx.user),
+              role: ctx.user?.role,
+            });
+            throw new Error("Unauthorized");
+          }
+  
+          await seedMockData();
+  
+          console.log("[Admin] seedData completed successfully");
+          return { success: true } as const;
+        } catch (error) {
+          console.error("[Admin] seedData failed", error);
+          throw error;
+        }
+      }),
     }),
-  }),
 });
 
 export type AppRouter = typeof appRouter;

@@ -8,6 +8,20 @@ import { useLocation } from "wouter";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Shield, Zap, Network, Eye } from "lucide-react";
 
+type TransitionType =
+  | "crossfade"
+  | "fade-to-black"
+  | "quick-cut"
+  | "slow-dissolve"
+  | "slide-left"
+  | "slide-right"
+  | "slide-up"
+  | "slide-down"
+  | "zoom-out-in"
+  | "zoom-in-out"
+  | "wipe-left"
+  | "wipe-right";
+
 /**
  * Baltimore Smart City Landing Page
  * Features:
@@ -95,6 +109,24 @@ function createShuffledSequence(length: number, avoidFirst?: number): number[] {
   return arr;
 }
 
+function getRandomTransition(): TransitionType {
+  const transitions: TransitionType[] = [
+    "crossfade",
+    "fade-to-black",
+    "quick-cut",
+    "slow-dissolve",
+    "slide-left",
+    "slide-right",
+    "slide-up",
+    "slide-down",
+    "zoom-out-in",
+    "zoom-in-out",
+    "wipe-left",
+    "wipe-right",
+  ];
+  return transitions[Math.floor(Math.random() * transitions.length)];
+}
+
  
 export default function Landing() {
   const { user, loading } = useAuth();
@@ -102,47 +134,159 @@ export default function Landing() {
   const [email, setEmail] = useState("admin@visium.com");
   const [password, setPassword] = useState("Baltimore2025");
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [nextVideoLoaded, setNextVideoLoaded] = useState(false);
   const [sequence, setSequence] = useState<number[]>(() =>
     createShuffledSequence(VIDEO_SOURCES.length),
   );
+  const [transitionType, setTransitionType] = useState<TransitionType>(() =>
+    getRandomTransition(),
+  );
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const nextVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const currentVideoIndex = sequence[0] ?? 0;
+  const nextVideoIndex = sequence[1] ?? currentVideoIndex;
 
   // Redirect to dashboard if already authenticated
   const handleVideoLoaded = () => {
-    console.log("[Landing] Video loaded", {
+    console.log("[Landing] Current video loaded", {
       index: currentVideoIndex,
       src: VIDEO_SOURCES[currentVideoIndex],
+      transitionType,
     });
     setVideoLoaded(true);
+    setIsTransitioning(false);
+  };
+
+  const handleNextVideoLoaded = () => {
+    console.log("[Landing] Next video loaded", {
+      index: nextVideoIndex,
+      src: VIDEO_SOURCES[nextVideoIndex],
+    });
+    setNextVideoLoaded(true);
   };
 
   const handleVideoEnd = () => {
     console.log("[Landing] Video ended", {
       index: currentVideoIndex,
       src: VIDEO_SOURCES[currentVideoIndex],
+      transitionType,
     });
 
-    // Start fade-out while we prepare the next clip.
-    setVideoLoaded(false);
+    // Select a new random transition for the next change
+    const newTransition = getRandomTransition();
+    setTransitionType(newTransition);
+    console.log("[Landing] Selected transition", { type: newTransition });
 
-    setSequence((prev) => {
-      // When the playlist is nearly or completely exhausted, start a fresh one
-      if (prev.length <= 1) {
-        const last = prev[0] ?? currentVideoIndex;
-        const nextSeq = createShuffledSequence(VIDEO_SOURCES.length, last);
-        console.log("[Landing] Resetting playlist", { last, nextSeq });
-        return nextSeq;
-      }
-
-      const [current, ...rest] = prev;
-      console.log("[Landing] Advancing to next video in playlist", {
-        from: current,
-        to: rest[0],
+    // Handle transition based on type
+    if (newTransition === "quick-cut") {
+      // Instant transition - no fade
+      setVideoLoaded(false);
+      setIsTransitioning(true);
+      setSequence((prev) => {
+        if (prev.length <= 1) {
+          const last = prev[0] ?? currentVideoIndex;
+          const nextSeq = createShuffledSequence(VIDEO_SOURCES.length, last);
+          console.log("[Landing] Resetting playlist", { last, nextSeq });
+          return nextSeq;
+        }
+        const [current, ...rest] = prev;
+        console.log("[Landing] Advancing to next video in playlist", {
+          from: current,
+          to: rest[0],
+        });
+        return rest;
       });
-      return rest;
-    });
+    } else if (
+      newTransition === "crossfade" ||
+      newTransition === "slow-dissolve" ||
+      newTransition.startsWith("slide") ||
+      newTransition.startsWith("zoom") ||
+      newTransition.startsWith("wipe")
+    ) {
+      // Crossfade-style transitions - need next video ready
+      if (nextVideoLoaded) {
+        setIsTransitioning(true);
+        // Start playing the next video immediately
+        const nextVideo = nextVideoRef.current;
+        if (nextVideo) {
+          nextVideo.currentTime = 0;
+          const playPromise = nextVideo.play();
+          if (playPromise && typeof playPromise.then === "function") {
+            playPromise.catch((error) => {
+              console.warn("[Landing] Next video.play() rejected", { error });
+            });
+          }
+        }
+        // Advance sequence after transition duration
+        const transitionDuration = newTransition === "slow-dissolve" ? 2800 : 
+                                   newTransition.startsWith("slide") ? 1200 :
+                                   newTransition.startsWith("zoom") ? 1800 :
+                                   newTransition.startsWith("wipe") ? 1000 : 1500;
+        setTimeout(() => {
+          setSequence((prev) => {
+            if (prev.length <= 1) {
+              const last = prev[0] ?? currentVideoIndex;
+              const nextSeq = createShuffledSequence(VIDEO_SOURCES.length, last);
+              console.log("[Landing] Resetting playlist", { last, nextSeq });
+              return nextSeq;
+            }
+            const [current, ...rest] = prev;
+            console.log("[Landing] Advancing to next video in playlist", {
+              from: current,
+              to: rest[0],
+            });
+            return rest;
+          });
+          setVideoLoaded(false);
+          setNextVideoLoaded(false);
+        }, transitionDuration);
+      } else {
+        // Fallback to fade-to-black if next video not ready
+        console.log("[Landing] Next video not ready, falling back to fade-to-black");
+        setVideoLoaded(false);
+        setIsTransitioning(true);
+        const transitionDuration = 1500;
+        setTimeout(() => {
+          setSequence((prev) => {
+            if (prev.length <= 1) {
+              const last = prev[0] ?? currentVideoIndex;
+              const nextSeq = createShuffledSequence(VIDEO_SOURCES.length, last);
+              console.log("[Landing] Resetting playlist", { last, nextSeq });
+              return nextSeq;
+            }
+            const [current, ...rest] = prev;
+            console.log("[Landing] Advancing to next video in playlist", {
+              from: current,
+              to: rest[0],
+            });
+            return rest;
+          });
+        }, transitionDuration);
+      }
+    } else {
+      // Fade-to-black transition (default)
+      setVideoLoaded(false);
+      setIsTransitioning(true);
+      const transitionDuration = 1500;
+      setTimeout(() => {
+        setSequence((prev) => {
+          if (prev.length <= 1) {
+            const last = prev[0] ?? currentVideoIndex;
+            const nextSeq = createShuffledSequence(VIDEO_SOURCES.length, last);
+            console.log("[Landing] Resetting playlist", { last, nextSeq });
+            return nextSeq;
+          }
+          const [current, ...rest] = prev;
+          console.log("[Landing] Advancing to next video in playlist", {
+            from: current,
+            to: rest[0],
+          });
+          return rest;
+        });
+      }, transitionDuration);
+    }
   };
 
   const handleVideoError = () => {
@@ -160,17 +304,16 @@ export default function Landing() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) {
-      // Ref not attached yet; effect will re-run once it is.
       return;
     }
 
-    console.log("[Landing] Attempting to play video", {
+    console.log("[Landing] Attempting to play current video", {
       index: currentVideoIndex,
       src: VIDEO_SOURCES[currentVideoIndex],
+      transitionType,
       canPlayType: video.canPlayType("video/mp4"),
     });
 
-    // Force the browser to pick up any updated src and restart playback.
     video.pause();
     video.currentTime = 0;
     video.load();
@@ -179,21 +322,35 @@ export default function Landing() {
     if (playPromise && typeof playPromise.then === "function") {
       playPromise
         .then(() => {
-          console.log("[Landing] video.play() resolved", {
+          console.log("[Landing] Current video.play() resolved", {
             index: currentVideoIndex,
             src: VIDEO_SOURCES[currentVideoIndex],
           });
         })
         .catch((error) => {
-          console.warn("[Landing] video.play() rejected", {
+          console.warn("[Landing] Current video.play() rejected", {
             index: currentVideoIndex,
             src: VIDEO_SOURCES[currentVideoIndex],
             error,
           });
-          // Autoplay might be blocked; ignore for background video.
         });
     }
-  }, [currentVideoIndex]);
+  }, [currentVideoIndex, transitionType]);
+
+  // Always preload the next video for smoother transitions
+  useEffect(() => {
+    const nextVideo = nextVideoRef.current;
+    if (!nextVideo || nextVideoIndex === currentVideoIndex) {
+      return;
+    }
+
+    console.log("[Landing] Preloading next video", {
+      index: nextVideoIndex,
+      src: VIDEO_SOURCES[nextVideoIndex],
+    });
+    nextVideo.load();
+    setNextVideoLoaded(false);
+  }, [nextVideoIndex, currentVideoIndex]);
 
   useEffect(() => {
     if (user && !loading) {
@@ -223,7 +380,133 @@ export default function Landing() {
     );
   }
 
-  const nextVideoIndex = sequence[1] ?? currentVideoIndex;
+  // Helper function to get transition duration
+  const getTransitionDuration = (): string => {
+    switch (transitionType) {
+      case "quick-cut":
+        return "duration-0";
+      case "slow-dissolve":
+        return "duration-[2800ms]";
+      case "crossfade":
+        return "duration-[1500ms]";
+      case "fade-to-black":
+        return "duration-[1500ms]";
+      case "slide-left":
+      case "slide-right":
+      case "slide-up":
+      case "slide-down":
+        return "duration-[1200ms]";
+      case "zoom-out-in":
+      case "zoom-in-out":
+        return "duration-[1800ms]";
+      case "wipe-left":
+      case "wipe-right":
+        return "duration-[1000ms]";
+      default:
+        return "duration-[1500ms]";
+    }
+  };
+
+  // Helper function to get transition classes for current video
+  const getCurrentVideoClasses = (): string => {
+    const baseClasses = "absolute inset-0 w-full h-full object-cover";
+    const duration = getTransitionDuration();
+
+    if (isTransitioning) {
+      switch (transitionType) {
+        case "quick-cut":
+          return `${baseClasses} opacity-0 ${duration}`;
+        case "crossfade":
+        case "slow-dissolve":
+          return `${baseClasses} opacity-0 ${duration} transition-opacity`;
+        case "fade-to-black":
+          return `${baseClasses} opacity-0 ${duration} transition-opacity`;
+        case "slide-left":
+          return `${baseClasses} opacity-0 -translate-x-full ${duration} transition-all`;
+        case "slide-right":
+          return `${baseClasses} opacity-0 translate-x-full ${duration} transition-all`;
+        case "slide-up":
+          return `${baseClasses} opacity-0 -translate-y-full ${duration} transition-all`;
+        case "slide-down":
+          return `${baseClasses} opacity-0 translate-y-full ${duration} transition-all`;
+        case "zoom-out-in":
+          return `${baseClasses} opacity-0 scale-150 ${duration} transition-all`;
+        case "zoom-in-out":
+          return `${baseClasses} opacity-0 scale-50 ${duration} transition-all`;
+        case "wipe-left":
+          return `${baseClasses} opacity-0 -translate-x-full ${duration} transition-all`;
+        case "wipe-right":
+          return `${baseClasses} opacity-0 translate-x-full ${duration} transition-all`;
+        default:
+          return `${baseClasses} opacity-0 ${duration} transition-opacity`;
+      }
+    }
+
+    return `${baseClasses} ${videoLoaded ? "opacity-100" : "opacity-0"} ${duration} transition-opacity`;
+  };
+
+  // Helper function to get transition classes for next video (for crossfade transitions)
+  const getNextVideoClasses = (): string => {
+    const baseClasses = "absolute inset-0 w-full h-full object-cover";
+    const duration = getTransitionDuration();
+
+    if (isTransitioning) {
+      switch (transitionType) {
+        case "crossfade":
+        case "slow-dissolve":
+          return `${baseClasses} opacity-100 ${duration} transition-opacity z-10`;
+        case "slide-left":
+          return `${baseClasses} opacity-100 translate-x-0 ${duration} transition-all z-10`;
+        case "slide-right":
+          return `${baseClasses} opacity-100 translate-x-0 ${duration} transition-all z-10`;
+        case "slide-up":
+          return `${baseClasses} opacity-100 translate-y-0 ${duration} transition-all z-10`;
+        case "slide-down":
+          return `${baseClasses} opacity-100 translate-y-0 ${duration} transition-all z-10`;
+        case "zoom-out-in":
+          return `${baseClasses} opacity-100 scale-100 ${duration} transition-all z-10`;
+        case "zoom-in-out":
+          return `${baseClasses} opacity-100 scale-100 ${duration} transition-all z-10`;
+        case "wipe-left":
+          return `${baseClasses} opacity-100 translate-x-0 ${duration} transition-all z-10`;
+        case "wipe-right":
+          return `${baseClasses} opacity-100 translate-x-0 ${duration} transition-all z-10`;
+        default:
+          return `${baseClasses} opacity-0 ${duration} transition-opacity`;
+      }
+    }
+
+    // Initial state for next video (off-screen or hidden) - prepare for transition
+    switch (transitionType) {
+      case "slide-left":
+        return `${baseClasses} opacity-0 translate-x-full ${duration} transition-all`;
+      case "slide-right":
+        return `${baseClasses} opacity-0 -translate-x-full ${duration} transition-all`;
+      case "slide-up":
+        return `${baseClasses} opacity-0 translate-y-full ${duration} transition-all`;
+      case "slide-down":
+        return `${baseClasses} opacity-0 -translate-y-full ${duration} transition-all`;
+      case "zoom-out-in":
+        return `${baseClasses} opacity-0 scale-50 ${duration} transition-all`;
+      case "zoom-in-out":
+        return `${baseClasses} opacity-0 scale-150 ${duration} transition-all`;
+      case "wipe-left":
+        return `${baseClasses} opacity-0 translate-x-full ${duration} transition-all`;
+      case "wipe-right":
+        return `${baseClasses} opacity-0 -translate-x-full ${duration} transition-all`;
+      default:
+        return `${baseClasses} opacity-0 ${duration} transition-opacity`;
+    }
+  };
+
+  // Determine if we need to render the next video element
+  const needsNextVideoElement =
+    isTransitioning &&
+    (transitionType === "crossfade" ||
+      transitionType === "slow-dissolve" ||
+      transitionType.startsWith("slide") ||
+      transitionType.startsWith("zoom") ||
+      transitionType.startsWith("wipe"));
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -231,6 +514,8 @@ export default function Landing() {
       <div className="absolute inset-0 z-0 overflow-hidden">
         {/* Fallback gradient background if video doesn't load */}
         <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/70 to-black/80" />
+        
+        {/* Current Video */}
         <video
           key={currentVideoIndex}
           ref={videoRef}
@@ -239,20 +524,31 @@ export default function Landing() {
           playsInline
           preload="auto"
           src={VIDEO_SOURCES[currentVideoIndex]}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1500ms] ${
-            videoLoaded ? "opacity-100" : "opacity-0"
-          }`}
+          className={getCurrentVideoClasses()}
           onLoadedData={handleVideoLoaded}
           onEnded={handleVideoEnd}
           onError={handleVideoError}
         />
-        {/* Preload the next video off-screen for smoother transitions */}
+
+        {/* Next Video - Always in DOM for preloading, visible during crossfade transitions */}
         <video
-          className="hidden"
-          preload="auto"
+          key={`next-${nextVideoIndex}`}
+          ref={nextVideoRef}
+          autoPlay={needsNextVideoElement}
           muted
+          playsInline
+          preload="auto"
           src={VIDEO_SOURCES[nextVideoIndex]}
+          className={needsNextVideoElement ? getNextVideoClasses() : "hidden"}
+          onLoadedData={handleNextVideoLoaded}
+          onError={() => {
+            console.error("[Landing] Next video error", {
+              index: nextVideoIndex,
+              src: VIDEO_SOURCES[nextVideoIndex],
+            });
+          }}
         />
+
         {/* Gradient overlay on top of video */}
         <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/55 to-black/70 z-10" />
       </div>

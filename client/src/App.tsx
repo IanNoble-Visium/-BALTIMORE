@@ -9,6 +9,7 @@ import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Ubicell from "./pages/Ubicell";
 import DataExplorer from "./pages/DataExplorer";
+import Analytics from "./pages/Analytics";
 
 function DashboardRoute() {
   return (
@@ -35,6 +36,14 @@ function DataExplorerRoute() {
   );
 }
 
+function AnalyticsRoute() {
+  return (
+    <DashboardLayout>
+      <Analytics />
+    </DashboardLayout>
+  );
+}
+
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
@@ -43,6 +52,7 @@ function Router() {
       <Route path={"/dashboard"} component={DashboardRoute} />
       <Route path={"/ubicell"} component={UbicellRoute} />
       <Route path={"/explorer"} component={DataExplorerRoute} />
+      <Route path={"/analytics"} component={AnalyticsRoute} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
