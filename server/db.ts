@@ -370,3 +370,275 @@ export async function seedMockData() {
     console.error("[Database] Failed to seed mock data:", error);
   }
 }
+
+// CSV Import functionality
+function cleanValue(value: string | null | undefined): string | null {
+  if (!value || value === '-' || value === '' || value === 'N/A' || value === 'null') {
+    return null;
+  }
+  return value.trim();
+}
+
+function parseDatetime(dateStr: string | null | undefined): Date | null {
+  if (!dateStr || dateStr === '-') return null;
+  
+  try {
+    // Try parsing MM/DD/YYYY HH:MMAM/PM format
+    const match = dateStr.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+)(AM|PM)/i);
+    if (match) {
+      let [, month, day, year, hour, minute, ampm] = match;
+      let h = parseInt(hour);
+      if (ampm.toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (ampm.toUpperCase() === 'AM' && h === 12) h = 0;
+      
+      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), h, parseInt(minute));
+    }
+    
+    // Try ISO format
+    const isoDate = new Date(dateStr);
+    if (!isNaN(isoDate.getTime())) {
+      return isoDate;
+    }
+    
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function determineSeverity(alertType: string | null): 'low' | 'medium' | 'high' | 'critical' {
+  if (!alertType) return 'medium';
+  
+  const severityMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+    'Power Loss': 'high',
+    'Sudden Tilt': 'critical',
+    'Low Voltage': 'medium',
+    'Without GPS Location': 'low',
+    'High Voltage': 'high',
+    'Overheating': 'high',
+    'Communication Loss': 'medium',
+  };
+  
+  const lower = alertType.toLowerCase();
+  if (lower.includes('critical') || lower.includes('sudden') || lower.includes('emergency')) {
+    return 'critical';
+  }
+  if (lower.includes('high') || lower.includes('power loss') || lower.includes('failure')) {
+    return 'high';
+  }
+  if (lower.includes('low') || lower.includes('warning')) {
+    return 'medium';
+  }
+  
+  return severityMap[alertType] || 'medium';
+}
+
+// Map CSV column names to device fields
+function mapCsvToDevice(row: Record<string, string>): Partial<InsertDevice> {
+  const device: Partial<InsertDevice> = {};
+  
+  // Common column name mappings
+  const mappings: Record<string, keyof InsertDevice> = {
+    'deviceid': 'deviceId',
+    'device_id': 'deviceId',
+    'deveui': 'deviceId',
+    'dev_eui': 'deviceId',
+    'nodename': 'nodeName',
+    'node_name': 'nodeName',
+    'latitude': 'latitude',
+    'lat': 'latitude',
+    'longitude': 'longitude',
+    'lng': 'longitude',
+    'lon': 'longitude',
+    'nodestatus': 'nodeStatus',
+    'node_status': 'nodeStatus',
+    'status': 'nodeStatus',
+    'networktype': 'networkType',
+    'network_type': 'networkType',
+    'firmwareversion': 'firmwareVersion',
+    'firmware_version': 'firmwareVersion',
+    'firmware': 'firmwareVersion',
+    'hardwareversion': 'hardwareVersion',
+    'hardware_version': 'hardwareVersion',
+    'hardware': 'hardwareVersion',
+    'burnhours': 'burnHours',
+    'burn_hours': 'burnHours',
+    'lightstatus': 'lightStatus',
+    'light_status': 'lightStatus',
+    'alerttype': 'alertType',
+    'alert_type': 'alertType',
+    'alertvalue': 'alertValue',
+    'alert_value': 'alertValue',
+    'installdate': 'installDate',
+    'install_date': 'installDate',
+    'timezone': 'timezone',
+    'tags': 'tags',
+    'utility': 'utility',
+  };
+  
+  // Map columns (case-insensitive)
+  for (const [csvKey, value] of Object.entries(row)) {
+    const lowerKey = csvKey.toLowerCase().trim();
+    const deviceField = mappings[lowerKey];
+    
+    if (deviceField && value) {
+      const cleaned = cleanValue(value);
+      if (cleaned) {
+        (device as any)[deviceField] = cleaned;
+      }
+    }
+  }
+  
+  // Ensure deviceId exists (required field)
+  if (!device.deviceId) {
+    // Try to generate from other fields
+    const devEui = cleanValue(row['DevEUI'] || row['dev_eui'] || row['device_id'] || '');
+    if (devEui) {
+      device.deviceId = devEui;
+    } else {
+      // Generate a unique ID
+      device.deviceId = `CSV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  }
+  
+  return device;
+}
+
+export async function importCsvData(
+  rows: Record<string, string>[],
+  useAI: boolean = false
+): Promise<{ devicesInserted: number; alertsInserted: number; errors: string[] }> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  let devicesInserted = 0;
+  let alertsInserted = 0;
+  const errors: string[] = [];
+
+  try {
+    for (const row of rows) {
+      try {
+        // Map CSV row to device
+        const deviceData = mapCsvToDevice(row);
+        
+        if (!deviceData.deviceId) {
+          errors.push(`Skipping row: No device ID found`);
+          continue;
+        }
+
+        // Insert or update device
+        await db
+          .insert(devices)
+          .values({
+            ...deviceData,
+            lastUpdate: new Date(),
+          } as InsertDevice)
+          .onConflictDoUpdate({
+            target: devices.deviceId,
+            set: {
+              ...deviceData,
+              lastUpdate: new Date(),
+            } as Partial<InsertDevice>,
+          });
+
+        devicesInserted++;
+
+        // Create alert if alert type exists or can be inferred
+        let alertType = deviceData.alertType;
+        let alertValue = deviceData.alertValue || null;
+        let alertTimestamp = new Date();
+
+        // Try to infer alert from status or other fields
+        if (!alertType && deviceData.nodeStatus) {
+          const status = (deviceData.nodeStatus || '').toUpperCase();
+          if (status.includes('POWER LOSS') || status.includes('OFFLINE')) {
+            alertType = 'Power Loss';
+          } else if (status.includes('TILT')) {
+            alertType = 'Sudden Tilt';
+          } else if (status.includes('VOLTAGE')) {
+            alertType = 'Low Voltage';
+          }
+        }
+
+        // Use AI to infer alerts if enabled and no alert type found
+        if (useAI && !alertType && ENV.openAiApiKey) {
+          try {
+            const { invokeLLM } = await import('./_core/llm');
+            const deviceSummary = JSON.stringify({
+              status: deviceData.nodeStatus,
+              burnHours: deviceData.burnHours,
+              lightStatus: deviceData.lightStatus,
+              networkType: deviceData.networkType,
+            });
+
+            const result = await invokeLLM({
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are an expert at analyzing smart city device data and identifying potential alerts. Return only a JSON object with "alertType" (string or null) and "severity" (low/medium/high/critical).',
+                },
+                {
+                  role: 'user',
+                  content: `Analyze this device data and determine if there should be an alert: ${deviceSummary}`,
+                },
+              ],
+              responseFormat: { type: 'json_object' },
+            });
+
+            const content = result.choices[0]?.message?.content;
+            if (content) {
+              const parsed = JSON.parse(content);
+              if (parsed.alertType) {
+                alertType = parsed.alertType;
+              }
+            }
+          } catch (aiError) {
+            console.warn('[Import] AI inference failed, continuing without AI:', aiError);
+          }
+        }
+
+        // Create alert if we have an alert type
+        if (alertType) {
+          const severity = determineSeverity(alertType);
+          const status = (deviceData.nodeStatus || '').toUpperCase().includes('POWER LOSS') ||
+                         (deviceData.nodeStatus || '').toUpperCase().includes('OFFLINE')
+            ? 'active'
+            : 'resolved';
+
+          // Try to parse timestamp from CSV
+          const timestampStr = row['Alert Date/Time'] || row['alert_date_time'] || row['timestamp'] || row['Timestamp'];
+          if (timestampStr) {
+            const parsed = parseDatetime(timestampStr);
+            if (parsed) {
+              alertTimestamp = parsed;
+            }
+          }
+
+          await db.insert(alerts).values({
+            deviceId: deviceData.deviceId,
+            timestamp: alertTimestamp,
+            alertType,
+            alertValue,
+            severity,
+            status,
+            latitude: deviceData.latitude || null,
+            longitude: deviceData.longitude || null,
+            description: `${alertType} detected on ${deviceData.nodeName || deviceData.deviceId}`,
+          });
+
+          alertsInserted++;
+        }
+      } catch (rowError: any) {
+        errors.push(`Error processing row: ${rowError?.message || String(rowError)}`);
+        console.error('[Import] Row error:', rowError);
+      }
+    }
+
+    return { devicesInserted, alertsInserted, errors };
+  } catch (error) {
+    console.error('[Import] Failed to import CSV data:', error);
+    throw error;
+  }
+}

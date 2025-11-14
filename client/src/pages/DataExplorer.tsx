@@ -28,7 +28,10 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Line, LineChart, XAxis, YAxis } from "recharts";
-import { Upload, Download, Filter, Search, Database, AlertTriangle, X } from "lucide-react";
+import { Upload, Download, Filter, Search, Database, AlertTriangle, X, CheckCircle2, Loader2 } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return;
@@ -195,9 +198,44 @@ export default function DataExplorer() {
   const [uploadHeaders, setUploadHeaders] = useState<string[]>([]);
   const [uploadRows, setUploadRows] = useState<Record<string, string>[]>([]);
   const [uploadSchema, setUploadSchema] = useState<{ field: string; type: string }[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    devicesInserted: number;
+    alertsInserted: number;
+    errors: string[];
+  } | null>(null);
+  const [useAI, setUseAI] = useState(false);
+
+  const importMutation = trpc.import.csv.useMutation({
+    onSuccess: (data) => {
+      setImportResult({
+        devicesInserted: data.devicesInserted,
+        alertsInserted: data.alertsInserted,
+        errors: data.errors || [],
+      });
+      setIsImporting(false);
+      // Invalidate queries to refresh data
+      devicesQuery.refetch();
+      alertsQuery.refetch();
+      
+      // Show success toast
+      sonnerToast.success("Import completed", {
+        description: `${data.devicesInserted} devices and ${data.alertsInserted} alerts imported successfully`,
+      });
+    },
+    onError: (error) => {
+      setUploadError(error.message || "Failed to import data");
+      setIsImporting(false);
+      sonnerToast.error("Import failed", {
+        description: error.message || "Failed to import CSV data",
+      });
+    },
+  });
 
   const handleFile = (file: File) => {
     setUploadError(null);
+    setImportResult(null);
+    setIsImporting(false);
     const reader = new FileReader();
     reader.onload = e => {
       try {
@@ -788,6 +826,89 @@ export default function DataExplorer() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Import Options */}
+                  <div className="flex flex-col gap-3 p-3 border rounded-md bg-muted/30">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="use-ai"
+                        checked={useAI}
+                        onCheckedChange={(checked) => setUseAI(checked === true)}
+                      />
+                      <Label
+                        htmlFor="use-ai"
+                        className="text-xs cursor-pointer"
+                      >
+                        Use AI to infer alert types from device data
+                      </Label>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="w-full"
+                      onClick={() => {
+                        if (uploadRows.length === 0) {
+                          sonnerToast.error("No data to import");
+                          return;
+                        }
+                        setIsImporting(true);
+                        setImportResult(null);
+                        setUploadError(null);
+                        importMutation.mutate({
+                          rows: uploadRows,
+                          useAI,
+                        });
+                      }}
+                      disabled={isImporting || uploadRows.length === 0}
+                    >
+                      {isImporting ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3.5 w-3.5 mr-1" />
+                          Import to Database
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Import Results */}
+                  {importResult && (
+                    <div className="p-3 border rounded-md bg-green-500/10 border-green-500/30">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                        <div className="flex-1 space-y-1">
+                          <p className="text-xs font-semibold text-green-500">
+                            Import completed successfully!
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {importResult.devicesInserted} devices inserted/updated,{" "}
+                            {importResult.alertsInserted} alerts created
+                          </p>
+                          {importResult.errors.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs font-semibold text-amber-500">
+                                {importResult.errors.length} errors occurred:
+                              </p>
+                              <ScrollArea className="max-h-32 mt-1">
+                                <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
+                                  {importResult.errors.slice(0, 10).map((error, idx) => (
+                                    <li key={idx}>{error}</li>
+                                  ))}
+                                  {importResult.errors.length > 10 && (
+                                    <li>... and {importResult.errors.length - 10} more</li>
+                                  )}
+                                </ul>
+                              </ScrollArea>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <ScrollArea className="max-h-[360px] rounded-md border">
                     <Table>

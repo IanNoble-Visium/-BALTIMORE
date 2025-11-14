@@ -21,6 +21,7 @@ import {
   getDeviceStatistics,
   getAlertStatistics,
   seedMockData,
+  importCsvData,
 } from "./db";
 
 export const appRouter = router({
@@ -209,6 +210,31 @@ export const appRouter = router({
           throw error;
         }
       }),
+    }),
+
+    // CSV Import
+    import: router({
+      csv: publicProcedure
+        .input(
+          z.object({
+            rows: z.array(z.record(z.string())),
+            useAI: z.boolean().optional().default(false),
+          })
+        )
+        .mutation(async ({ input }) => {
+          try {
+            const result = await importCsvData(input.rows, input.useAI);
+            return {
+              success: true,
+              devicesInserted: result.devicesInserted,
+              alertsInserted: result.alertsInserted,
+              errors: result.errors,
+            };
+          } catch (error: any) {
+            console.error("[Import] CSV import failed:", error);
+            throw new Error(error?.message || "Failed to import CSV data");
+          }
+        }),
     }),
 });
 
