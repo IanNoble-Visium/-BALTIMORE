@@ -5,7 +5,8 @@
  */
 
 import { readFileSync } from 'fs';
-import { drizzle } from 'drizzle-orm/mysql2';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import { devices, alerts, kpis } from '../drizzle/schema.ts';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -15,7 +16,10 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const db = drizzle(DATABASE_URL);
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+});
+const db = drizzle(pool);
 
 function parseCSVLine(line) {
   const values = [];
@@ -123,24 +127,10 @@ async function seedUbicquiaData(filePath) {
       
       // Insert device
       try {
-        await db.insert(devices).values({
-          deviceId,
-          nodeName,
-          latitude,
-          longitude,
-          alertType,
-          alertValue,
-          burnHours,
-          lightStatus,
-          nodeStatus,
-          networkType,
-          firmwareVersion: firmware,
-          installDate,
-          utility,
-          timezone,
-          tags,
-        }).onDuplicateKeyUpdate({
-          set: {
+        await db
+          .insert(devices)
+          .values({
+            deviceId,
             nodeName,
             latitude,
             longitude,
@@ -155,9 +145,27 @@ async function seedUbicquiaData(filePath) {
             utility,
             timezone,
             tags,
-            lastUpdate: new Date(),
-          }
-        });
+          })
+          .onConflictDoUpdate({
+            target: devices.deviceId,
+            set: {
+              nodeName,
+              latitude,
+              longitude,
+              alertType,
+              alertValue,
+              burnHours,
+              lightStatus,
+              nodeStatus,
+              networkType,
+              firmwareVersion: firmware,
+              installDate,
+              utility,
+              timezone,
+              tags,
+              lastUpdate: new Date(),
+            },
+          });
         
         deviceCount++;
       } catch (e) {

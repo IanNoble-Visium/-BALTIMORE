@@ -9,8 +9,12 @@ from datetime import datetime
 import os
 import sys
 
-# Database connection string from environment
-DATABASE_URL = "postgresql://neondb_owner:npg_HhWCxR57MGis@ep-wandering-hall-a46blaei-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require"
+# Database connection string from environment (.env -> DATABASE_URL)
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+if not DATABASE_URL:
+    print("Error: DATABASE_URL environment variable is not set. Please configure it in your .env file.")
+    sys.exit(1)
 
 def parse_connection_string(url):
     """Parse PostgreSQL connection string"""

@@ -7,7 +7,7 @@ Please use the best framework (React, Vue, Svelte, Vite, etc.) to show the wow f
 
 Create a very nice landing page with a default admin login that is pre-filled to login.  This will be the first page used to impress everyone for the Baltimore demo tomorrow.  I will provide the b-roll video to play in the background of the landing page.
 
-Use the CSV data files in the docs folder as a template to create mock smart city alarms that are available throughout the dashboard and generated in a cloud PostgreSQL database, credentials are provided and should be stored in the .env file; postgresql://neondb_owner:npg_HhWCxR57MGis@ep-wandering-hall-a46blaei-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require7
+Use the CSV data files in the docs folder as a template to create mock smart city alarms that are available throughout the dashboard and generated in a cloud PostgreSQL database. The database credentials are provided separately and must be stored securely in the `.env` file as `DATABASE_URL` (do not hard-code them in code or documentation).
 
 Have a section dedicated to the Ubicell UGU devices with graphical diagrams of the devices and setup.
 
@@ -407,5 +407,4 @@ This rich data set is designed to help utilities and municipalities optimize str
 	9. https://www.ubicquia.com/news/ubicquia-launches-new-ai-smart-lighting-controller
 	10. https://www.ubicquia.com/solution/strengthen-public-safety-streetlight-cameras
 
-From <https://www.perplexity.ai/search/we-just-received-devices-from-92DbkTPUTTObc.kdxNG2AA> 
-
+From <https://www.perplexity.ai/search/we-just-received-devices-from-92DbkTPUTTObc.kdxNG2AA>
