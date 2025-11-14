@@ -16,6 +16,8 @@ import {
   getAlertsBySeverity,
   getLatestKPIs,
   getKPIHistory,
+  getBaltimoreDataRecent,
+  getBaltimoreDataByCategory,
   getDeviceStatistics,
   getAlertStatistics,
   seedMockData,
@@ -101,11 +103,39 @@ export const appRouter = router({
     getLatest: publicProcedure.query(async () => {
       return await getLatestKPIs();
     }),
-    
+
     getHistory: publicProcedure
       .input(z.object({ limit: z.number().optional().default(24) }))
       .query(async ({ input }) => {
         return await getKPIHistory(input.limit);
+      }),
+  }),
+
+  // Baltimore dataset
+  baltimore: router({
+    getRecent: publicProcedure
+      .input(
+        z
+          .object({
+            limit: z.number().min(1).max(500).optional(),
+          })
+          .optional(),
+      )
+      .query(async ({ input }) => {
+        const limit = input?.limit ?? 50;
+        return await getBaltimoreDataRecent(limit);
+      }),
+
+    getByCategory: publicProcedure
+      .input(
+        z.object({
+          category: z.string(),
+          limit: z.number().min(1).max(500).optional(),
+        }),
+      )
+      .query(async ({ input }) => {
+        const limit = input.limit ?? 50;
+        return await getBaltimoreDataByCategory(input.category, limit);
       }),
   }),
 

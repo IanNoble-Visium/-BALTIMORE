@@ -200,7 +200,7 @@ export default function Landing() {
       {/* Video Background */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         {/* Fallback gradient background if video doesn't load */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black" />
+        <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/70 to-black/80" />
         <video
           ref={videoRef}
           autoPlay
@@ -208,7 +208,7 @@ export default function Landing() {
           playsInline
           preload="auto"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1500ms] ${
-            videoLoaded && !isFadingOut ? "opacity-30" : "opacity-0"
+            videoLoaded && !isFadingOut ? "opacity-100" : "opacity-0"
           }`}
           onLoadedData={handleVideoLoaded}
           onEnded={handleVideoEnd}

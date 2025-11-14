@@ -3,15 +3,16 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { 
-  Activity, 
-  AlertTriangle, 
-  Zap, 
-  Network, 
+import {
+  Activity,
+  AlertTriangle,
+  Zap,
+  Network,
   TrendingUp,
   MapPin,
   LogOut,
-  Menu
+  Menu,
+  Database,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MapboxMap } from "@/components/Map";
@@ -38,6 +39,9 @@ export default function Dashboard() {
   const { data: alertStats, isLoading: alertsLoading } = trpc.alerts.getStatistics.useQuery();
   const { data: devices } = trpc.devices.getAll.useQuery();
   const { data: activeAlerts } = trpc.alerts.getActive.useQuery();
+  const { data: baltimoreData, isLoading: baltimoreLoading } = trpc.baltimore.getRecent.useQuery({
+    limit: 10,
+  });
 
   // Seed data if needed (for demo purposes)
   const seedDataMutation = trpc.admin.seedData.useMutation();
@@ -166,8 +170,8 @@ export default function Dashboard() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {deviceStats?.total ? 
-                  `${Math.round((deviceStats.online / deviceStats.total) * 100)}% operational` 
+                {deviceStats?.total ?
+                  `${Math.round((deviceStats.online / deviceStats.total) * 100)}% operational`
                   : "0% operational"}
               </p>
             </CardContent>
@@ -302,12 +306,12 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-chart-1 transition-all"
-                      style={{ 
-                        width: `${devices?.length ? 
-                          (devices.filter(d => d.networkType === 'LTE').length / devices.length) * 100 
-                          : 0}%` 
+                      style={{
+                        width: `${devices?.length ?
+                          (devices.filter(d => d.networkType === 'LTE').length / devices.length) * 100
+                          : 0}%`
                       }}
                     />
                   </div>
@@ -321,12 +325,12 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-chart-2 transition-all"
-                      style={{ 
-                        width: `${devices?.length ? 
-                          (devices.filter(d => d.networkType === 'LTE-M').length / devices.length) * 100 
-                          : 0}%` 
+                      style={{
+                        width: `${devices?.length ?
+                          (devices.filter(d => d.networkType === 'LTE-M').length / devices.length) * 100
+                          : 0}%`
                       }}
                     />
                   </div>
@@ -336,8 +340,8 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">Total Coverage</span>
                     <span className="text-primary font-bold">
-                      {deviceStats?.total ? 
-                        `${Math.round((deviceStats.online / deviceStats.total) * 100)}%` 
+                      {deviceStats?.total ?
+                        `${Math.round((deviceStats.online / deviceStats.total) * 100)}%`
                         : "0%"}
                     </span>
                   </div>
@@ -345,6 +349,60 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Baltimore Data Highlights */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                Baltimore Data Highlights
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {baltimoreLoading ? (
+                <div className="space-y-2">
+                  <div className="h-4 w-1/3 shimmer rounded" />
+                  <div className="h-4 w-2/3 shimmer rounded" />
+                  <div className="h-4 w-1/2 shimmer rounded" />
+                </div>
+              ) : !baltimoreData || baltimoreData.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No additional Baltimore dataset records found.
+                </p>
+              ) : (
+                <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                  {baltimoreData.slice(0, 10).map(row => (
+                    <div
+                      key={row.id}
+                      className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 border border-border"
+                    >
+                      <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {row.category || "Uncategorized"}
+                          {row.subcategory ? `  b7 ${row.subcategory}` : ""}
+                        </p>
+                        {row.description && (
+                          <p className="text-xs text-muted-foreground">
+                            {row.description}
+                          </p>
+                        )}
+                        <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                          {row.value && <span>Value: {row.value}</span>}
+                          {row.latitude && row.longitude && (
+                            <span>
+                              Lat/Lon: {row.latitude}, {row.longitude}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
         </div>
 
         {/* Footer Info */}
