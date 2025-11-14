@@ -77,17 +77,37 @@ const VIDEO_SOURCES: string[] = [
   "/videos/_9_baltimore_202511140241_eq6b7.mp4",
 ];
 
+function createShuffledSequence(length: number, avoidFirst?: number): number[] {
+  const arr = Array.from({ length }, (_, i) => i);
 
+  // Fisher–Yates shuffle
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+
+  // If requested, avoid having the first element equal to avoidFirst
+  if (avoidFirst !== undefined && arr.length > 1 && arr[0] === avoidFirst) {
+    const swapIndex = 1 + Math.floor(Math.random() * (arr.length - 1));
+    [arr[0], arr[swapIndex]] = [arr[swapIndex], arr[0]];
+  }
+
+  return arr;
+}
+
+ 
 export default function Landing() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("admin@visium.com");
   const [password, setPassword] = useState("Baltimore2025");
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(() =>
-    Math.floor(Math.random() * VIDEO_SOURCES.length),
+  const [sequence, setSequence] = useState<number[]>(() =>
+    createShuffledSequence(VIDEO_SOURCES.length),
   );
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const currentVideoIndex = sequence[0] ?? 0;
 
   // Redirect to dashboard if already authenticated
   const handleVideoLoaded = () => {
@@ -104,16 +124,21 @@ export default function Landing() {
       src: VIDEO_SOURCES[currentVideoIndex],
     });
 
-    // Pick a random next video, avoiding immediate repeats when possible
-    setCurrentVideoIndex(prev => {
-      if (VIDEO_SOURCES.length <= 1) return prev;
-
-      let next = Math.floor(Math.random() * VIDEO_SOURCES.length);
-      if (next === prev) {
-        next = (next + 1) % VIDEO_SOURCES.length;
+    setSequence(prev => {
+      // When the playlist is nearly or completely exhausted, start a fresh one
+      if (prev.length <= 1) {
+        const last = prev[0] ?? currentVideoIndex;
+        const nextSeq = createShuffledSequence(VIDEO_SOURCES.length, last);
+        console.log("[Landing] Resetting playlist", { last, nextSeq });
+        return nextSeq;
       }
-      console.log("[Landing] Advancing to next random video", { from: prev, to: next });
-      return next;
+
+      const [current, ...rest] = prev;
+      console.log("[Landing] Advancing to next video in playlist", {
+        from: current,
+        to: rest[0],
+      });
+      return rest;
     });
   };
 
@@ -191,6 +216,8 @@ export default function Landing() {
     );
   }
 
+  const nextVideoIndex = sequence[1] ?? currentVideoIndex;
+
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Video Background */}
@@ -215,7 +242,7 @@ export default function Landing() {
         {/* Preload the next video off-screen for smoother transitions */}
         <video className="hidden" preload="auto" muted>
           <source
-            src={VIDEO_SOURCES[(currentVideoIndex + 1) % VIDEO_SOURCES.length]}
+            src={VIDEO_SOURCES[nextVideoIndex]}
             type="video/mp4"
           />
         </video>
