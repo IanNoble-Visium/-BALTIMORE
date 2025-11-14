@@ -15,7 +15,7 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
-let _pool: Pool | null = null;
+let _pool: any | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.

@@ -84,8 +84,9 @@ export default function Landing() {
   const [email, setEmail] = useState("admin@visium.com");
   const [password, setPassword] = useState("Baltimore2025");
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [isFadingOut, setIsFadingOut] = useState(false);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(() =>
+    Math.floor(Math.random() * VIDEO_SOURCES.length),
+  );
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Redirect to dashboard if already authenticated
@@ -95,7 +96,6 @@ export default function Landing() {
       src: VIDEO_SOURCES[currentVideoIndex],
     });
     setVideoLoaded(true);
-    setIsFadingOut(false);
   };
 
   const handleVideoEnd = () => {
@@ -103,19 +103,18 @@ export default function Landing() {
       index: currentVideoIndex,
       src: VIDEO_SOURCES[currentVideoIndex],
     });
-    setIsFadingOut(true);
-  };
 
-  const handleVideoTransitionEnd = () => {
-    if (!isFadingOut) return;
+    // Pick a random next video, avoiding immediate repeats when possible
+    setCurrentVideoIndex(prev => {
+      if (VIDEO_SOURCES.length <= 1) return prev;
 
-    const nextIndex = (currentVideoIndex + 1) % VIDEO_SOURCES.length;
-    console.log("[Landing] Transition end, advancing video", {
-      from: currentVideoIndex,
-      to: nextIndex,
+      let next = Math.floor(Math.random() * VIDEO_SOURCES.length);
+      if (next === prev) {
+        next = (next + 1) % VIDEO_SOURCES.length;
+      }
+      console.log("[Landing] Advancing to next random video", { from: prev, to: next });
+      return next;
     });
-
-    setCurrentVideoIndex(nextIndex);
   };
 
   const handleVideoError = () => {
@@ -133,10 +132,7 @@ export default function Landing() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) {
-      console.warn("[Landing] videoRef is null when trying to play", {
-        index: currentVideoIndex,
-        src: VIDEO_SOURCES[currentVideoIndex],
-      });
+      // Ref not attached yet; effect will re-run once it is.
       return;
     }
 
@@ -208,11 +204,10 @@ export default function Landing() {
           playsInline
           preload="auto"
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1500ms] ${
-            videoLoaded && !isFadingOut ? "opacity-100" : "opacity-0"
+            videoLoaded ? "opacity-100" : "opacity-0"
           }`}
           onLoadedData={handleVideoLoaded}
           onEnded={handleVideoEnd}
-          onTransitionEnd={handleVideoTransitionEnd}
           onError={handleVideoError}
         >
           <source src={VIDEO_SOURCES[currentVideoIndex]} type="video/mp4" />
@@ -225,7 +220,7 @@ export default function Landing() {
           />
         </video>
         {/* Gradient overlay on top of video */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-black/95 to-black/90 z-10" />
+        <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/55 to-black/70 z-10" />
       </div>
 
       {/* Content */}
