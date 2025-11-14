@@ -217,7 +217,7 @@ export const appRouter = router({
       csv: publicProcedure
         .input(
           z.object({
-            rows: z.array(z.record(z.string())),
+            rows: z.array(z.any()),
             useAI: z.boolean().optional().default(false),
           })
         )
@@ -239,7 +239,26 @@ export const appRouter = router({
               console.warn(`[Import] Limiting import to ${maxRows} rows (${input.rows.length} provided)`);
             }
 
-            const result = await importCsvData(rowsToProcess, input.useAI);
+            // Validate and normalize rows - ensure all values are strings
+            const normalizedRows: Record<string, string>[] = [];
+            for (const row of rowsToProcess) {
+              if (!row || typeof row !== 'object' || Array.isArray(row)) {
+                continue; // Skip invalid rows
+              }
+              const normalized: Record<string, string> = {};
+              for (const [key, value] of Object.entries(row)) {
+                if (typeof key === 'string') {
+                  normalized[key] = value === null || value === undefined ? '' : String(value);
+                }
+              }
+              normalizedRows.push(normalized);
+            }
+
+            if (normalizedRows.length === 0) {
+              throw new Error("No valid rows found after normalization");
+            }
+
+            const result = await importCsvData(normalizedRows, input.useAI);
             return {
               success: true,
               devicesInserted: result.devicesInserted,
