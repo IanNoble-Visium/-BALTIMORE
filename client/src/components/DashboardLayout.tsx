@@ -48,15 +48,19 @@ export default function DashboardLayout({
   });
   const { loading, user } = useAuth();
 
+  const hasOAuthConfig = Boolean(
+    import.meta.env.VITE_OAUTH_PORTAL_URL && import.meta.env.VITE_APP_ID,
+  );
+
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
-  if (loading) {
-    return <DashboardLayoutSkeleton />
+  if (loading && hasOAuthConfig) {
+    return <DashboardLayoutSkeleton />;
   }
 
-  if (!user) {
+  if (!user && hasOAuthConfig) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">

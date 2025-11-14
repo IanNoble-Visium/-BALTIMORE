@@ -11,6 +11,7 @@ import {
   Device,
   Alert,
   Kpi,
+  BaltimoreData,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -186,7 +187,7 @@ export async function getAlertsBySeverity(severity: 'low' | 'medium' | 'high' | 
 export async function getLatestKPIs(): Promise<Kpi | undefined> {
   const db = await getDb();
   if (!db) return undefined;
-  
+
   const result = await db.select().from(kpis).orderBy(desc(kpis.timestamp)).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
@@ -194,8 +195,41 @@ export async function getLatestKPIs(): Promise<Kpi | undefined> {
 export async function getKPIHistory(limit: number = 24): Promise<Kpi[]> {
   const db = await getDb();
   if (!db) return [];
-  
+
   const result = await db.select().from(kpis).orderBy(desc(kpis.timestamp)).limit(limit);
+  return result;
+}
+
+// Baltimore dataset queries
+export async function getBaltimoreDataRecent(
+  limit: number = 50,
+): Promise<BaltimoreData[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db
+    .select()
+    .from(baltimoreData)
+    .orderBy(desc(baltimoreData.createdAt))
+    .limit(limit);
+
+  return result;
+}
+
+export async function getBaltimoreDataByCategory(
+  category: string,
+  limit: number = 50,
+): Promise<BaltimoreData[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db
+    .select()
+    .from(baltimoreData)
+    .where(eq(baltimoreData.category, category))
+    .orderBy(desc(baltimoreData.createdAt))
+    .limit(limit);
+
   return result;
 }
 

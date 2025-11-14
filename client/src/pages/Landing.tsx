@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { APP_TITLE } from "@/const";
+import { APP_TITLE, getLoginUrl } from "@/const";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useEffect, useRef, useState } from "react";
@@ -90,30 +90,80 @@ export default function Landing() {
 
   // Redirect to dashboard if already authenticated
   const handleVideoLoaded = () => {
+    console.log("[Landing] Video loaded", {
+      index: currentVideoIndex,
+      src: VIDEO_SOURCES[currentVideoIndex],
+    });
     setVideoLoaded(true);
     setIsFadingOut(false);
   };
 
   const handleVideoEnd = () => {
+    console.log("[Landing] Video ended", {
+      index: currentVideoIndex,
+      src: VIDEO_SOURCES[currentVideoIndex],
+    });
     setIsFadingOut(true);
   };
 
   const handleVideoTransitionEnd = () => {
     if (!isFadingOut) return;
 
-    setCurrentVideoIndex((prev) => (prev + 1) % VIDEO_SOURCES.length);
+    const nextIndex = (currentVideoIndex + 1) % VIDEO_SOURCES.length;
+    console.log("[Landing] Transition end, advancing video", {
+      from: currentVideoIndex,
+      to: nextIndex,
+    });
+
+    setCurrentVideoIndex(nextIndex);
+  };
+
+  const handleVideoError = () => {
+    const video = videoRef.current;
+    console.error("[Landing] Video error", {
+      index: currentVideoIndex,
+      src: VIDEO_SOURCES[currentVideoIndex],
+      error: video?.error,
+      networkState: video?.networkState,
+      readyState: video?.readyState,
+    });
+    setVideoLoaded(false);
   };
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video) {
+      console.warn("[Landing] videoRef is null when trying to play", {
+        index: currentVideoIndex,
+        src: VIDEO_SOURCES[currentVideoIndex],
+      });
+      return;
+    }
+
+    console.log("[Landing] Attempting to play video", {
+      index: currentVideoIndex,
+      src: VIDEO_SOURCES[currentVideoIndex],
+      canPlayType: video.canPlayType("video/mp4"),
+    });
 
     video.currentTime = 0;
     const playPromise = video.play();
     if (playPromise && typeof playPromise.then === "function") {
-      playPromise.catch(() => {
-        // Autoplay might be blocked; ignore for background video.
-      });
+      playPromise
+        .then(() => {
+          console.log("[Landing] video.play() resolved", {
+            index: currentVideoIndex,
+            src: VIDEO_SOURCES[currentVideoIndex],
+          });
+        })
+        .catch((error) => {
+          console.warn("[Landing] video.play() rejected", {
+            index: currentVideoIndex,
+            src: VIDEO_SOURCES[currentVideoIndex],
+            error,
+          });
+          // Autoplay might be blocked; ignore for background video.
+        });
     }
   }, [currentVideoIndex]);
 
@@ -125,9 +175,16 @@ export default function Landing() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, this would trigger OAuth flow
-    // For demo, we'll just redirect to dashboard
-    setLocation("/dashboard");
+
+    const hasOAuthConfig = Boolean(
+      import.meta.env.VITE_OAUTH_PORTAL_URL && import.meta.env.VITE_APP_ID,
+    );
+
+    if (hasOAuthConfig) {
+      window.location.href = getLoginUrl();
+    } else {
+      setLocation("/dashboard");
+    }
   };
 
   if (loading) {
@@ -156,6 +213,7 @@ export default function Landing() {
           onLoadedData={handleVideoLoaded}
           onEnded={handleVideoEnd}
           onTransitionEnd={handleVideoTransitionEnd}
+          onError={handleVideoError}
         >
           <source src={VIDEO_SOURCES[currentVideoIndex]} type="video/mp4" />
         </video>

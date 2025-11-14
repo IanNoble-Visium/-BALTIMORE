@@ -3,17 +3,35 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
+import DashboardLayout from "./components/DashboardLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
+import ComponentsShowcase from "./pages/ComponentShowcase";
+
+function DashboardRoute() {
+  return (
+    <DashboardLayout>
+      <Dashboard />
+    </DashboardLayout>
+  );
+}
+
+function ComponentsRoute() {
+  return (
+    <DashboardLayout>
+      <ComponentsShowcase />
+    </DashboardLayout>
+  );
+}
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path={"/"} component={Landing} />
-      <Route path={"/dashboard"} component={Dashboard} />
+      <Route path={"/dashboard"} component={DashboardRoute} />
+      <Route path={"/components"} component={ComponentsRoute} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
