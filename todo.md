@@ -73,12 +73,22 @@
 - [ ] Add drill-down functionality for charts
 
 ## Ubicell UGU Section
-- [ ] Create Ubicell section layout
-- [ ] Add device diagrams (3D renderings)
+- [x] Create Ubicell section layout
+- [x] Add device diagrams (3D renderings)
 - [ ] Add installation guide visuals
-- [ ] Display data collection capabilities
-- [ ] Explain 32+ data points
-- [ ] Show connection to UbiVu cloud
+- [x] Display data collection capabilities
+- [x] Explain 32+ data points
+- [x] Show connection to UbiVu cloud
+
+## Wow Factor Roadmap (Tier 2 & 3 Enhancements)
+- [ ] Implement map heatmap overlay for incident density
+- [ ] Add marker clustering and cluster drill-down
+- [ ] Add animated counter effects to KPI cards
+- [ ] Implement sortable, filterable data tables for devices and alerts
+- [ ] Add CSV export and print-friendly report views
+- [ ] Prototype 3D city flyover using Mapbox 3D or React Three Fiber
+- [ ] Implement AI alert pattern detection & summarization flows
+- [ ] Add predictive maintenance scoring based on Ubicell telemetry
 
 ## Data Tables
 - [ ] Create sortable data table component

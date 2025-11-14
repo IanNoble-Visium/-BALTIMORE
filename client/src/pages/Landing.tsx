@@ -124,7 +124,10 @@ export default function Landing() {
       src: VIDEO_SOURCES[currentVideoIndex],
     });
 
-    setSequence(prev => {
+    // Start fade-out while we prepare the next clip.
+    setVideoLoaded(false);
+
+    setSequence((prev) => {
       // When the playlist is nearly or completely exhausted, start a fresh one
       if (prev.length <= 1) {
         const last = prev[0] ?? currentVideoIndex;
@@ -167,7 +170,11 @@ export default function Landing() {
       canPlayType: video.canPlayType("video/mp4"),
     });
 
+    // Force the browser to pick up any updated src and restart playback.
+    video.pause();
     video.currentTime = 0;
+    video.load();
+
     const playPromise = video.play();
     if (playPromise && typeof playPromise.then === "function") {
       playPromise
@@ -225,27 +232,27 @@ export default function Landing() {
         {/* Fallback gradient background if video doesn't load */}
         <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/70 to-black/80" />
         <video
+          key={currentVideoIndex}
           ref={videoRef}
           autoPlay
           muted
           playsInline
           preload="auto"
+          src={VIDEO_SOURCES[currentVideoIndex]}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1500ms] ${
             videoLoaded ? "opacity-100" : "opacity-0"
           }`}
           onLoadedData={handleVideoLoaded}
           onEnded={handleVideoEnd}
           onError={handleVideoError}
-        >
-          <source src={VIDEO_SOURCES[currentVideoIndex]} type="video/mp4" />
-        </video>
+        />
         {/* Preload the next video off-screen for smoother transitions */}
-        <video className="hidden" preload="auto" muted>
-          <source
-            src={VIDEO_SOURCES[nextVideoIndex]}
-            type="video/mp4"
-          />
-        </video>
+        <video
+          className="hidden"
+          preload="auto"
+          muted
+          src={VIDEO_SOURCES[nextVideoIndex]}
+        />
         {/* Gradient overlay on top of video */}
         <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/55 to-black/70 z-10" />
       </div>

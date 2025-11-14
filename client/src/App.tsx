@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import ComponentsShowcase from "./pages/ComponentShowcase";
+import Ubicell from "./pages/Ubicell";
 
 function DashboardRoute() {
   return (
@@ -25,12 +26,21 @@ function ComponentsRoute() {
   );
 }
 
+function UbicellRoute() {
+  return (
+    <DashboardLayout>
+      <Ubicell />
+    </DashboardLayout>
+  );
+}
+
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path={"/"} component={Landing} />
       <Route path={"/dashboard"} component={DashboardRoute} />
+      <Route path={"/ubicell"} component={UbicellRoute} />
       <Route path={"/components"} component={ComponentsRoute} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

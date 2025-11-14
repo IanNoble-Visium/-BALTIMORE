@@ -13,22 +13,46 @@ import {
   LogOut,
   Menu,
   Database,
+  Brain,
+  BarChart3,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapboxMap } from "@/components/Map";
+import { AIChatBox, type Message } from "@/components/AIChatBox";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Bar,
+  BarChart,
+  Pie,
+  PieChart,
+  Cell,
+  Area,
+  AreaChart,
+} from "recharts";
+import { toast as sonnerToast } from "sonner";
 
 /**
  * Main Dashboard for Baltimore Smart City
- * Features KPI cards, maps, charts, and real-time monitoring
+ * Features KPI cards, maps, analytics charts, AI assistant, and real-time monitoring
  */
 export default function Dashboard() {
   const { user, loading, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Redirect to landing if not authenticated.
-  // In demo mode (no OAuth config), allow access to the dashboard
-  // even when there is no authenticated backend user.
+  // Redirect to landing if authenticated is required via OAuth
   useEffect(() => {
     const hasOAuthConfig = Boolean(
       import.meta.env.VITE_OAUTH_PORTAL_URL && import.meta.env.VITE_APP_ID,
@@ -41,13 +65,157 @@ export default function Dashboard() {
 
   // Fetch dashboard data
   const { data: kpis, isLoading: kpisLoading } = trpc.kpis.getLatest.useQuery();
-  const { data: deviceStats, isLoading: devicesLoading } = trpc.devices.getStatistics.useQuery();
-  const { data: alertStats, isLoading: alertsLoading } = trpc.alerts.getStatistics.useQuery();
+  const { data: deviceStats, isLoading: devicesLoading } =
+    trpc.devices.getStatistics.useQuery();
+  const { data: alertStats, isLoading: alertsLoading } =
+    trpc.alerts.getStatistics.useQuery();
   const { data: devices } = trpc.devices.getAll.useQuery();
   const { data: activeAlerts } = trpc.alerts.getActive.useQuery();
-  const { data: baltimoreData, isLoading: baltimoreLoading } = trpc.baltimore.getRecent.useQuery({
-    limit: 10,
+  const { data: baltimoreData, isLoading: baltimoreLoading } =
+    trpc.baltimore.getRecent.useQuery({
+      limit: 10,
+    });
+  const { data: kpiHistory } = trpc.kpis.getHistory.useQuery({ limit: 24 });
+  const { data: alertHistory } = trpc.alerts.getAll.useQuery();
+
+  // AI assistant state
+  const [chatMessages, setChatMessages] = useState<Message[]>([
+    {
+      role: "system",
+      content:
+        "You are an AI assistant embedded in the Baltimore Smart City TruContext dashboard. You help city stakeholders interpret KPIs, alerts, Ubicell device data, and network health in clear, non-technical language.",
+    },
+  ]);
+
+  const chatMutation = trpc.ai.chat.useMutation({
+    onSuccess: response => {
+      setChatMessages(prev => [
+        ...prev,
+        {
+          role: "assistant",
+          content: response.content,
+        },
+      ]);
+    },
+    onError: error => {
+      console.error("[AI Chat] Error:", error);
+      sonnerToast.error("AI assistant error", {
+        description: error.message ?? "Something went wrong. Please try again.",
+      });
+    },
   });
+
+  const handleChatSend = (content: string) => {
+    if (chatMutation.isPending) return;
+    const newMessages: Message[] = [...chatMessages, { role: "user", content }];
+    setChatMessages(newMessages);
+    chatMutation.mutate({ messages: newMessages });
+  };
+
+  // Derived analytics data for charts
+  const incidentTimeline = useMemo(() => {
+    if (!alertHistory) return [] as { date: string; count: number }[];
+
+    const buckets = new Map<string, number>();
+
+    for (const alert of alertHistory) {
+      const ts = alert.timestamp ? new Date(alert.timestamp) : null;
+      if (!ts) continue;
+      const key = ts.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+      buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    }
+
+    return Array.from(buckets.entries())
+      .map(([date, count]) => ({ date, count }))
+      .slice(-14);
+  }, [alertHistory]);
+
+  const alertTypeDistribution = useMemo(() => {
+    if (!alertStats?.byType) return [] as { type: string; count: number }[];
+    return alertStats.byType.map(row => ({
+      type: row.alertType || "Unknown",
+      count: Number(row.count) || 0,
+    }));
+  }, [alertStats]);
+
+  const severityDistribution = useMemo(() => {
+    if (!alertStats?.bySeverity) return [] as { severity: string; count: number }[];
+    return alertStats.bySeverity.map(row => ({
+      severity: row.severity,
+      count: Number(row.count) || 0,
+    }));
+  }, [alertStats]);
+
+  const resolutionTrend = useMemo(() => {
+    if (!kpiHistory) return [] as { label: string; hours: number }[];
+    return kpiHistory
+      .slice()
+      .reverse()
+      .map(entry => ({
+        label: entry.timestamp
+          ? new Date(entry.timestamp).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            })
+          : "",
+        hours: entry.avgResolutionTime ?? 0,
+      }));
+  }, [kpiHistory]);
+
+  const incidentChartConfig: ChartConfig = {
+    incidents: {
+      label: "Alerts",
+      color: "hsl(var(--chart-1))",
+    },
+  };
+
+  const typeChartConfig: ChartConfig = {
+    power: {
+      label: "Power Loss",
+      color: "hsl(var(--chart-3))",
+    },
+    tilt: {
+      label: "Sudden Tilt",
+      color: "hsl(var(--chart-2))",
+    },
+    voltage: {
+      label: "Low Voltage",
+      color: "hsl(var(--chart-4))",
+    },
+    other: {
+      label: "Other",
+      color: "hsl(var(--chart-5))",
+    },
+  };
+
+  const severityChartConfig: ChartConfig = {
+    low: {
+      label: "Low",
+      color: "hsl(var(--chart-5))",
+    },
+    medium: {
+      label: "Medium",
+      color: "hsl(var(--chart-4))",
+    },
+    high: {
+      label: "High",
+      color: "hsl(var(--chart-2))",
+    },
+    critical: {
+      label: "Critical",
+      color: "hsl(var(--chart-3))",
+    },
+  };
+
+  const resolutionChartConfig: ChartConfig = {
+    resolution: {
+      label: "Avg Resolution Time (hrs)",
+      color: "hsl(var(--chart-1))",
+    },
+  };
 
   // Seed data if needed (for demo purposes)
   const seedDataMutation = trpc.admin.seedData.useMutation();
@@ -107,7 +275,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium">{user?.name || "Admin User"}</p>
-              <p className="text-xs text-muted-foreground">{user?.email || "admin@visium.com"}</p>
+              <p className="text-xs text-muted-foreground">
+                {user?.email || "admin@visium.com"}
+              </p>
             </div>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
@@ -128,7 +298,8 @@ export default function Dashboard() {
                 <div className="flex-1">
                   <h3 className="font-semibold mb-2">No Data Available</h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    The database appears to be empty. Click the button below to seed the database with mock Baltimore Smart City data.
+                    The database appears to be empty. Click the button below to seed the
+                    database with mock Baltimore Smart City data.
                   </p>
                   <Button onClick={handleSeedData} disabled={seedDataMutation.isPending}>
                     {seedDataMutation.isPending ? "Seeding Data..." : "Seed Database"}
@@ -176,8 +347,8 @@ export default function Dashboard() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {deviceStats?.total ?
-                  `${Math.round((deviceStats.online / deviceStats.total) * 100)}% operational`
+                {deviceStats?.total
+                  ? `${Math.round((deviceStats.online / deviceStats.total) * 100)}% operational`
                   : "0% operational"}
               </p>
             </CardContent>
@@ -197,9 +368,7 @@ export default function Dashboard() {
                   alertStats?.active || 0
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Requiring attention
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Requiring attention</p>
             </CardContent>
           </Card>
 
@@ -217,17 +386,187 @@ export default function Dashboard() {
                   `${kpis?.deviceHealthScore || 0}%`
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Overall system health
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Overall system health</p>
             </CardContent>
           </Card>
         </div>
 
+        {/* Analytics Overview */}
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Baltimore Analytics Overview
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Incident Timeline */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Alert Volume (Last 2 Weeks)
+                </p>
+                {incidentTimeline.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Alert history will appear here as incidents are generated.
+                  </p>
+                ) : (
+                  <ChartContainer config={incidentChartConfig} className="h-56">
+                    <LineChart
+                      data={incidentTimeline}
+                      margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                      <XAxis
+                        dataKey="date"
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={12}
+                      />
+                      <YAxis tickLine={false} axisLine={false} width={36} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line
+                        type="monotone"
+                        dataKey="count"
+                        stroke="var(--color-incidents)"
+                        strokeWidth={2}
+                        dot={false}
+                        name="incidents"
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Alert Type Distribution */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Alert Types
+                </p>
+                {alertTypeDistribution.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Alert type distribution will appear as alerts accumulate.
+                  </p>
+                ) : (
+                  <ChartContainer config={typeChartConfig} className="h-56">
+                    <PieChart>
+                      <Pie
+                        dataKey="count"
+                        data={alertTypeDistribution}
+                        nameKey="type"
+                        innerRadius={40}
+                        outerRadius={64}
+                        paddingAngle={4}
+                      >
+                        {alertTypeDistribution.map((entry, index) => {
+                          const key = entry.type.toLowerCase();
+                          const colorKey =
+                            key.includes("power")
+                              ? "power"
+                              : key.includes("tilt")
+                                ? "tilt"
+                                : key.includes("volt")
+                                  ? "voltage"
+                                  : "other";
+                          return (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`var(--color-${colorKey})`}
+                              stroke="transparent"
+                            />
+                          );
+                        })}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent nameKey="type" />} />
+                      <ChartLegend content={<ChartLegendContent nameKey="type" />} />
+                    </PieChart>
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Severity Distribution */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Severity Mix
+                </p>
+                {severityDistribution.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Severity distribution will appear here once alerts exist.
+                  </p>
+                ) : (
+                  <ChartContainer config={severityChartConfig} className="h-56">
+                    <BarChart
+                      data={severityDistribution}
+                      margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                      <XAxis
+                        dataKey="severity"
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={value =>
+                          String(value).charAt(0).toUpperCase() + String(value).slice(1)
+                        }
+                      />
+                      <YAxis tickLine={false} axisLine={false} width={36} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="count" radius={4}>
+                        {severityDistribution.map((entry, index) => (
+                          <Cell
+                            key={`bar-${index}`}
+                            fill={`var(--color-${entry.severity.toLowerCase()})`}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Resolution Time Trend */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Avg Resolution Time
+                </p>
+                {resolutionTrend.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Resolution KPIs will appear here as incidents are resolved.
+                  </p>
+                ) : (
+                  <ChartContainer config={resolutionChartConfig} className="h-56">
+                    <AreaChart
+                      data={resolutionTrend}
+                      margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={12}
+                      />
+                      <YAxis tickLine={false} axisLine={false} width={40} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area
+                        type="monotone"
+                        dataKey="hours"
+                        stroke="var(--color-resolution)"
+                        fill="var(--color-resolution)"
+                        fillOpacity={0.25}
+                        name="resolution"
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
           {/* Map Section */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 xl:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-primary" />
@@ -262,17 +601,22 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-3">
                 {activeAlerts && activeAlerts.length > 0 ? (
-                  activeAlerts.slice(0, 5).map((alert) => (
+                  activeAlerts.slice(0, 5).map(alert => (
                     <div
                       key={alert.id}
                       className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border border-border"
                     >
-                      <div className={`w-2 h-2 rounded-full mt-2 ${
-                        alert.severity === 'critical' ? 'bg-chart-3' :
-                        alert.severity === 'high' ? 'bg-chart-2' :
-                        alert.severity === 'medium' ? 'bg-chart-4' :
-                        'bg-chart-5'
-                      }`} />
+                      <div
+                        className={`w-2 h-2 rounded-full mt-2 ${
+                          alert.severity === "critical"
+                            ? "bg-chart-3"
+                            : alert.severity === "high"
+                              ? "bg-chart-2"
+                              : alert.severity === "medium"
+                                ? "bg-chart-4"
+                                : "bg-chart-5"
+                        }`}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{alert.alertType}</p>
                         <p className="text-xs text-muted-foreground truncate">
@@ -308,16 +652,20 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">LTE Devices</span>
                     <span className="text-sm text-muted-foreground">
-                      {devices?.filter(d => d.networkType === 'LTE').length || 0}
+                      {devices?.filter(d => d.networkType === "LTE").length || 0}
                     </span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-chart-1 transition-all"
                       style={{
-                        width: `${devices?.length ?
-                          (devices.filter(d => d.networkType === 'LTE').length / devices.length) * 100
-                          : 0}%`
+                        width: `${
+                          devices?.length
+                            ? (devices.filter(d => d.networkType === "LTE").length /
+                                devices.length) *
+                              100
+                            : 0
+                        }%`,
                       }}
                     />
                   </div>
@@ -327,16 +675,20 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">LTE-M Devices</span>
                     <span className="text-sm text-muted-foreground">
-                      {devices?.filter(d => d.networkType === 'LTE-M').length || 0}
+                      {devices?.filter(d => d.networkType === "LTE-M").length || 0}
                     </span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-chart-2 transition-all"
                       style={{
-                        width: `${devices?.length ?
-                          (devices.filter(d => d.networkType === 'LTE-M').length / devices.length) * 100
-                          : 0}%`
+                        width: `${
+                          devices?.length
+                            ? (devices.filter(d => d.networkType === "LTE-M").length /
+                                devices.length) *
+                              100
+                            : 0
+                        }%`,
                       }}
                     />
                   </div>
@@ -346,8 +698,8 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">Total Coverage</span>
                     <span className="text-primary font-bold">
-                      {deviceStats?.total ?
-                        `${Math.round((deviceStats.online / deviceStats.total) * 100)}%`
+                      {deviceStats?.total
+                        ? `${Math.round((deviceStats.online / deviceStats.total) * 100)}%`
                         : "0%"}
                     </span>
                   </div>
@@ -356,8 +708,34 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {/* AI Assistant */}
+          <Card className="xl:row-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-primary" />
+                AI Command Assistant
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <AIChatBox
+                messages={chatMessages}
+                onSendMessage={handleChatSend}
+                isLoading={chatMutation.isPending}
+                height={360}
+                placeholder="Ask about Baltimore devices, alerts, and KPIs..."
+                emptyStateMessage="Ask a question about the Baltimore Smart City deployment."
+                suggestedPrompts={[
+                  "Summarize the current device health and alert status.",
+                  "Where are the most critical alerts in Baltimore right now?",
+                  "Explain what Ubicell devices are monitoring.",
+                  "Describe opportunities to improve feeder efficiency.",
+                ]}
+              />
+            </CardContent>
+          </Card>
+
           {/* Baltimore Data Highlights */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 xl:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-primary" />
@@ -386,12 +764,10 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
                           {row.category || "Uncategorized"}
-                          {row.subcategory ? `  b7 ${row.subcategory}` : ""}
+                          {row.subcategory ? ` · ${row.subcategory}` : ""}
                         </p>
                         {row.description && (
-                          <p className="text-xs text-muted-foreground">
-                            {row.description}
-                          </p>
+                          <p className="text-xs text-muted-foreground">{row.description}</p>
                         )}
                         <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
                           {row.value && <span>Value: {row.value}</span>}
@@ -408,7 +784,6 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-
         </div>
 
         {/* Footer Info */}

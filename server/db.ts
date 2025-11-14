@@ -184,12 +184,12 @@ export async function getAlertsBySeverity(severity: 'low' | 'medium' | 'high' | 
 }
 
 // KPI queries
-export async function getLatestKPIs(): Promise<Kpi | undefined> {
+export async function getLatestKPIs(): Promise<Kpi | null> {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return null;
 
   const result = await db.select().from(kpis).orderBy(desc(kpis.timestamp)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
+  return result.length > 0 ? result[0] : null;
 }
 
 export async function getKPIHistory(limit: number = 24): Promise<Kpi[]> {
