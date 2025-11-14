@@ -14,6 +14,7 @@ import {
   Menu
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { MapboxMap } from "@/components/Map";
 
 /**
  * Main Dashboard for Baltimore Smart City
@@ -224,15 +225,19 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[500px] bg-muted/20 rounded-lg flex items-center justify-center border border-border">
-                <div className="text-center space-y-2">
-                  <MapPin className="h-12 w-12 text-muted-foreground mx-auto" />
-                  <p className="text-muted-foreground">Interactive map will be displayed here</p>
-                  <p className="text-sm text-muted-foreground">
-                    {devices?.length || 0} devices across Baltimore
-                  </p>
+              {devices && devices.length > 0 ? (
+                <MapboxMap className="mt-2" devices={devices} />
+              ) : (
+                <div className="h-[500px] bg-muted/20 rounded-lg flex items-center justify-center border border-border">
+                  <div className="text-center space-y-2">
+                    <MapPin className="h-12 w-12 text-muted-foreground mx-auto" />
+                    <p className="text-muted-foreground">Waiting for device data…</p>
+                    <p className="text-sm text-muted-foreground">
+                      {devicesLoading ? "Loading devices from Baltimore…" : "No devices found"}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 

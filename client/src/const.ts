@@ -8,10 +8,19 @@ export const APP_LOGO = "https://placehold.co/128x128/E1E7EF/1F2937?text=App";
 export const getLoginUrl = () => {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
+
+  // If OAuth is not configured, fall back to the landing page so the demo still works.
+  if (!oauthPortalUrl || !appId) {
+    console.warn(
+      "[Auth] VITE_OAUTH_PORTAL_URL or VITE_APP_ID is not set; redirecting to landing page instead of OAuth.",
+    );
+    return "/";
+  }
+
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
   const state = btoa(redirectUri);
 
-  const url = new URL(`${oauthPortalUrl}/app-auth`);
+  const url = new URL("/app-auth", oauthPortalUrl);
   url.searchParams.set("appId", appId);
   url.searchParams.set("redirectUri", redirectUri);
   url.searchParams.set("state", state);

@@ -1403,7 +1403,7 @@ export default function ComponentsShowcase() {
                       Features markdown rendering, auto-scrolling, and loading states.
                     </p>
                     <p className="mt-2">
-                      This is a demo with simulated responses. In a real app, you'd connect it to a tRPC mutation.
+                      This instance is wired to the backend AI via tRPC (`ai.chat`), powered by your OpenAI key.
                     </p>
                   </div>
                   <AIChatBox
