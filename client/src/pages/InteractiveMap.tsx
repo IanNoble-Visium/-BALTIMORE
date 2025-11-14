@@ -53,108 +53,6 @@ export default function InteractiveMap() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
   const [networkFilter, setNetworkFilter] = useState<Set<string>>(new Set());
-  const handleFitToBounds = () => {
-    const map = mapRef.current;
-    if (!map || filteredDevices.length === 0) return;
-
-    const bounds = new mapboxgl.LngLatBounds();
-    for (const device of filteredDevices) {
-      const lat = parseFloat(device.latitude ?? "");
-      const lng = parseFloat(device.longitude ?? "");
-      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-        bounds.extend([lng, lat]);
-      }
-    }
-
-    if (!bounds.isEmpty()) {
-      map.fitBounds(bounds, {
-        padding: { top: 80, bottom: 80, left: 80, right: 80 },
-        duration: 900,
-      {/* High-level metrics */}
-      <Card className="border-[#FFC72C]/40 bg-gradient-to-br from-black via-slate-950 to-slate-900">
-        <CardContent className="pt-4 pb-4">
-          <div className="grid gap-4 md:grid-cols-4 text-xs text-slate-100">
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Total Devices</p>
-              <p className="mt-1 text-2xl font-semibold text-[#FFC72C]">
-                {deviceStats.total.toLocaleString()}
-              </p>
-              <p className="mt-1 text-[11px] text-slate-400">
-                {filteredDevices.length === deviceStats.total
-                  ? "All devices visible"
-                  : `${filteredDevices.length.toLocaleString()} match current filters`}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Network Types</p>
-              <p className="mt-1 text-sm font-medium">
-                {allNetworks.slice(0, 3).join(", ") || "Unknown"}
-                {allNetworks.length > 3 && ` +${allNetworks.length - 3} more`}
-              </p>
-              <p className="mt-1 text-[11px] text-slate-400">
-                Click a network chip below to focus on a specific network.
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Alert Severity</p>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {allSeverities.map(severity => {
-                  const count = deviceStats.alertsBySeverity.get(severity) ?? 0;
-                  if (count === 0) return null;
-                  const colorClasses: Record<string, string> = {
-                    critical: "bg-red-500/20 text-red-300 border-red-500/40",
-                    high: "bg-amber-500/20 text-amber-200 border-amber-500/40",
-                    medium: "bg-sky-500/20 text-sky-200 border-sky-500/40",
-                    low: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
-                  };
-                  return (
-                    <Badge
-                      key={severity}
-                      className={`border ${colorClasses[severity]} capitalize`}
-                    >
-                      {severity}
-                      <span className="ml-1 text-[10px] opacity-80">
-                        {count.toLocaleString()}
-                      </span>
-                    </Badge>
-                  );
-                })}
-                {deviceStats.activeAlertsCount === 0 && (
-                  <p className="text-[11px] text-slate-400">No active alerts.</p>
-                )}
-              </div>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Quick Actions</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  className="border-[#FFC72C]/60 bg-black/40 text-[11px] hover:bg-[#FFC72C]/10"
-                  onClick={handleFitToBounds}
-                >
-                  <ZoomIn className="mr-1 h-3 w-3" /> Fit to devices
-                </Button>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  className="border-slate-500/80 bg-black/40 text-[11px] hover:bg-slate-800/80"
-                  onClick={handleResetView}
-                >
-                  <RefreshCw className="mr-1 h-3 w-3" /> Reset view
-                </Button>
-              </div>
-              <p className="mt-2 text-[11px] text-slate-500">
-                Use these controls during the demo to smoothly fly around Baltimore.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      });
-    }
-  };
 
   const handleResetView = () => {
     const map = mapRef.current;
@@ -212,12 +110,6 @@ export default function InteractiveMap() {
     return map;
   }, [alertsQuery.data]);
 
-  const severityOrder: Record<string, number> = {
-    low: 1,
-    medium: 2,
-    high: 3,
-    critical: 4,
-  };
 
   const deviceStats = useMemo(() => {
     const total = devices.length;
@@ -314,6 +206,27 @@ export default function InteractiveMap() {
     });
   }, [alertsByDevice, devices, networkFilter, searchQuery, severityFilter, statusFilter]);
 
+  const handleFitToBounds = () => {
+    const map = mapRef.current;
+    if (!map || filteredDevices.length === 0) return;
+
+    const bounds = new mapboxgl.LngLatBounds();
+    for (const device of filteredDevices) {
+      const lat = parseFloat(device.latitude ?? "");
+      const lng = parseFloat(device.longitude ?? "");
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+        bounds.extend([lng, lat]);
+      }
+    }
+
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, {
+        padding: { top: 80, bottom: 80, left: 80, right: 80 },
+        duration: 900,
+      });
+    }
+  };
+
   const isDataEmpty = !devices || devices.length === 0;
 
   return (
@@ -350,6 +263,89 @@ export default function InteractiveMap() {
           )}
         </div>
       </header>
+
+      {/* High-level metrics */}
+      <Card className="border-[#FFC72C]/40 bg-gradient-to-br from-black via-slate-950 to-slate-900">
+        <CardContent className="pt-4 pb-4">
+          <div className="grid gap-4 md:grid-cols-4 text-xs text-slate-100">
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Total Devices</p>
+              <p className="mt-1 text-2xl font-semibold text-[#FFC72C]">
+                {deviceStats.total.toLocaleString()}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {filteredDevices.length === deviceStats.total
+                  ? "All devices visible"
+                  : `${filteredDevices.length.toLocaleString()} match current filters`}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Network Types</p>
+              <p className="mt-1 text-sm font-medium">
+                {allNetworks.slice(0, 3).join(", ") || "Unknown"}
+                {allNetworks.length > 3 && ` +${allNetworks.length - 3} more`}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Click a network chip below to focus on a specific network.
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Alert Severity</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {allSeverities.map(severity => {
+                  const count = deviceStats.alertsBySeverity.get(severity) ?? 0;
+                  if (count === 0) return null;
+                  const colorClasses: Record<string, string> = {
+                    critical: "bg-red-500/20 text-red-300 border-red-500/40",
+                    high: "bg-amber-500/20 text-amber-200 border-amber-500/40",
+                    medium: "bg-sky-500/20 text-sky-200 border-sky-500/40",
+                    low: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
+                  };
+                  return (
+                    <Badge
+                      key={severity}
+                      className={`border ${colorClasses[severity]} capitalize`}
+                    >
+                      {severity}
+                      <span className="ml-1 text-[10px] opacity-80">
+                        {count.toLocaleString()}
+                      </span>
+                    </Badge>
+                  );
+                })}
+                {deviceStats.activeAlertsCount === 0 && (
+                  <p className="text-[11px] text-slate-400">No active alerts.</p>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Quick Actions</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button
+                  size="xs"
+                  variant="outline"
+                  className="border-[#FFC72C]/60 bg-black/40 text-[11px] hover:bg-[#FFC72C]/10"
+                  onClick={handleFitToBounds}
+                >
+                  <ZoomIn className="mr-1 h-3 w-3" /> Fit to devices
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  className="border-slate-500/80 bg-black/40 text-[11px] hover:bg-slate-800/80"
+                  onClick={handleResetView}
+                >
+                  <RefreshCw className="mr-1 h-3 w-3" /> Reset view
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">
+                Use these controls during the demo to smoothly fly around Baltimore.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
 
       {isDataEmpty && (
         <Card className="border-primary/50 bg-primary/5">
