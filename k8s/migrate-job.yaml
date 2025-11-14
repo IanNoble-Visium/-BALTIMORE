@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  namespace: baltimore-smart-city
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate
+        image: your-registry/baltimore-smart-city:latest
+        imagePullPolicy: Always
+        command: ["sh", "-c", "pnpm db:push"]
+        envFrom:
+        - secretRef:
+            name: baltimore-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      restartPolicy: Never
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+
