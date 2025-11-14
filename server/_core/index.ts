@@ -38,6 +38,11 @@ async function startServer() {
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
   
+  // Simple health check endpoint for Kubernetes probes
+  app.get("/api/trpc/health", (req, res) => {
+    res.status(200).json({ ok: true, timestamp: Date.now() });
+  });
+  
   // tRPC API
   app.use(
     "/api/trpc",
