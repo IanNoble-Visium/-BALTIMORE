@@ -9,6 +9,7 @@ import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import Ubicell from "./pages/Ubicell";
 import DataExplorer from "./pages/DataExplorer";
+import DataTables from "./pages/DataTables";
 import Analytics from "./pages/Analytics";
 import InteractiveMap from "./pages/InteractiveMap";
 import NetworkGraph from "./pages/NetworkGraph";
@@ -34,6 +35,14 @@ function DataExplorerRoute() {
   return (
     <DashboardLayout>
       <DataExplorer />
+    </DashboardLayout>
+  );
+}
+
+function DataTablesRoute() {
+  return (
+    <DashboardLayout>
+      <DataTables />
     </DashboardLayout>
   );
 }
@@ -71,6 +80,7 @@ function Router() {
       <Route path={"/map"} component={InteractiveMapRoute} />
       <Route path={"/ubicell"} component={UbicellRoute} />
       <Route path={"/explorer"} component={DataExplorerRoute} />
+      <Route path={"/tables"} component={DataTablesRoute} />
       <Route path={"/analytics"} component={AnalyticsRoute} />
       <Route path={"/network"} component={NetworkGraphRoute} />
       <Route path={"/404"} component={NotFound} />

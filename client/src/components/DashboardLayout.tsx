@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLocation } from "wouter";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Zap, Database, BarChart3, MapPin, Network } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Zap, Database, BarChart3, MapPin, Network, Table } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,6 +34,7 @@ const menuItems = [
   { icon: Network, label: "Network Graph", path: "/network" },
   { icon: Zap, label: "Ubicell UGU", path: "/ubicell" },
   { icon: Database, label: "Data Explorer", path: "/explorer" },
+  { icon: Table, label: "Data Tables", path: "/tables" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
 ];
 
@@ -131,6 +133,11 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+
+  const handleSidebarLogout = async () => {
+    await logout();
+    setLocation("/");
+  };
 
   useEffect(() => {
     if (isCollapsed) {
@@ -259,7 +266,7 @@ function DashboardLayoutContent({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem
-                  onClick={logout}
+                  onClick={handleSidebarLogout}
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
                   <LogOut className="mr-2 h-4 w-4" />

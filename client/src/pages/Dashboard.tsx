@@ -211,55 +211,63 @@ export default function Dashboard() {
       }));
   }, [kpiHistory]);
 
+  const BALTIMORE_COLORS = {
+    primary: "#FFC72C",
+    accentBlue: "#3b82f6",
+    accentGreen: "#10b981",
+    accentOrange: "#f59e0b",
+    accentRed: "#ef4444",
+  } as const;
+
   const incidentChartConfig: ChartConfig = {
     incidents: {
       label: "Alerts",
-      color: "hsl(var(--chart-1))",
+      color: BALTIMORE_COLORS.primary,
     },
   };
 
   const typeChartConfig: ChartConfig = {
     power: {
       label: "Power Loss",
-      color: "hsl(var(--chart-3))",
+      color: BALTIMORE_COLORS.accentOrange,
     },
     tilt: {
       label: "Sudden Tilt",
-      color: "hsl(var(--chart-2))",
+      color: BALTIMORE_COLORS.accentBlue,
     },
     voltage: {
       label: "Low Voltage",
-      color: "hsl(var(--chart-4))",
+      color: BALTIMORE_COLORS.accentGreen,
     },
     other: {
       label: "Other",
-      color: "hsl(var(--chart-5))",
+      color: BALTIMORE_COLORS.accentRed,
     },
   };
 
   const severityChartConfig: ChartConfig = {
     low: {
       label: "Low",
-      color: "hsl(var(--chart-5))",
+      color: BALTIMORE_COLORS.accentGreen,
     },
     medium: {
       label: "Medium",
-      color: "hsl(var(--chart-4))",
+      color: BALTIMORE_COLORS.primary,
     },
     high: {
       label: "High",
-      color: "hsl(var(--chart-2))",
+      color: BALTIMORE_COLORS.accentOrange,
     },
     critical: {
       label: "Critical",
-      color: "hsl(var(--chart-3))",
+      color: BALTIMORE_COLORS.accentRed,
     },
   };
 
   const resolutionChartConfig: ChartConfig = {
     resolution: {
       label: "Avg Resolution Time (hrs)",
-      color: "hsl(var(--chart-1))",
+      color: BALTIMORE_COLORS.accentBlue,
     },
   };
 
@@ -491,13 +499,13 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={incidentChartConfig}
-                    className="h-56 rounded-lg border border-border bg-muted/40"
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <LineChart
                       data={incidentTimeline}
                       margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.3} />
                       <XAxis
                         dataKey="date"
                         tickLine={false}
@@ -509,8 +517,8 @@ export default function Dashboard() {
                       <Line
                         type="monotone"
                         dataKey="count"
-                        stroke="var(--color-incidents)"
-                        strokeWidth={2}
+                        stroke={BALTIMORE_COLORS.primary}
+                        strokeWidth={3}
                         dot={false}
                         name="incidents"
                       />
@@ -531,7 +539,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={typeChartConfig}
-                    className="h-56 rounded-lg border border-border bg-muted/40"
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <PieChart>
                       <Pie
@@ -555,8 +563,9 @@ export default function Dashboard() {
                           return (
                             <Cell
                               key={`cell-${index}`}
-                              fill={`var(--color-${colorKey})`}
-                              stroke="transparent"
+                              fill={BALTIMORE_COLORS[colorKey]}
+                              stroke="#020617"
+                              strokeWidth={1}
                             />
                           );
                         })}
@@ -580,7 +589,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={severityChartConfig}
-                    className="h-56 rounded-lg border border-border bg-muted/40"
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <BarChart
                       data={severityDistribution}
@@ -597,11 +606,11 @@ export default function Dashboard() {
                       />
                       <YAxis tickLine={false} axisLine={false} width={36} />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="count" radius={4}>
+                      <Bar dataKey="count" radius={4} barSize={28}>
                         {severityDistribution.map((entry, index) => (
                           <Cell
                             key={`bar-${index}`}
-                            fill={`var(--color-${entry.severity.toLowerCase()})`}
+                            fill={BALTIMORE_COLORS[entry.severity.toLowerCase()]}
                           />
                         ))}
                       </Bar>
@@ -622,7 +631,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={resolutionChartConfig}
-                    className="h-56 rounded-lg border border-border bg-muted/40"
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <AreaChart
                       data={resolutionTrend}
@@ -641,8 +650,9 @@ export default function Dashboard() {
                         type="monotone"
                         dataKey="hours"
                         stroke="var(--color-resolution)"
+                        strokeWidth={3}
                         fill="var(--color-resolution)"
-                        fillOpacity={0.25}
+                        fillOpacity={0.45}
                         name="resolution"
                       />
                     </AreaChart>

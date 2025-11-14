@@ -353,6 +353,11 @@ export default function Landing() {
   }, [nextVideoIndex, currentVideoIndex]);
 
   useEffect(() => {
+    const hasOAuthConfig = Boolean(
+      import.meta.env.VITE_OAUTH_PORTAL_URL && import.meta.env.VITE_APP_ID,
+    );
+
+    if (!hasOAuthConfig) return;
     if (user && !loading) {
       setLocation("/dashboard");
     }
