@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import type { Alert } from "@shared/types";
+import type { DateRange } from "react-day-picker";
+import { format, endOfDay, startOfDay, subDays } from "date-fns";
 import { trpc } from "@/lib/trpc";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -11,8 +14,9 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Download, Filter } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon, Download, Filter } from "lucide-react";
 import { SortableDataTable, type DataTableColumn } from "@/components/SortableDataTable";
 
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
@@ -63,7 +67,8 @@ export default function DataTables() {
 
   const [severity, setSeverity] = useState<"ALL" | Alert["severity"]>("ALL");
   const [type, setType] = useState<string>("ALL");
-  const [range, setRange] = useState<"ALL" | "24H" | "7D" | "30D">("ALL");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [sortedAlerts, setSortedAlerts] = useState<Alert[]>([]);
 
   const alerts = alertsQuery.data ?? [];
 
@@ -73,20 +78,20 @@ export default function DataTables() {
   );
 
   const filteredAlerts = useMemo(() => {
-    const now = new Date();
     return alerts.filter(a => {
       if (severity !== "ALL" && a.severity !== severity) return false;
       if (type !== "ALL" && a.alertType !== type) return false;
-      if (range !== "ALL" && a.timestamp) {
-        const hoursDiff =
-          (now.getTime() - new Date(a.timestamp).getTime()) / (1000 * 60 * 60);
-        if (range === "24H" && hoursDiff > 24) return false;
-        if (range === "7D" && hoursDiff > 24 * 7) return false;
-        if (range === "30D" && hoursDiff > 24 * 30) return false;
+
+      if (dateRange?.from && a.timestamp) {
+        const alertDate = new Date(a.timestamp);
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        if (alertDate < from || alertDate > to) return false;
       }
+
       return true;
     });
-  }, [alerts, severity, type, range]);
+  }, [alerts, severity, type, dateRange]);
 
   const columns: DataTableColumn<Alert>[] = useMemo(
     () => [
@@ -161,10 +166,13 @@ export default function DataTables() {
             size="sm"
             variant="outline"
             disabled={!filteredAlerts.length}
-            onClick={() =>
+            onClick={() => {
+              const exportAlerts = sortedAlerts.length
+                ? sortedAlerts
+                : filteredAlerts;
               downloadCsv(
                 "baltimore_alerts_table.csv",
-                filteredAlerts.map(a => ({
+                exportAlerts.map(a => ({
                   timestamp: a.timestamp
                     ? new Date(a.timestamp).toISOString()
                     : "",
@@ -174,8 +182,8 @@ export default function DataTables() {
                   status: a.status,
                   description: a.description ?? "",
                 })),
-              )
-            }
+              );
+            }}
           >
             <Download className="mr-1 h-3.5 w-3.5" />
             Export CSV
@@ -219,35 +227,100 @@ export default function DataTables() {
               </SelectContent>
             </Select>
 
-            <Select
-              value={range}
-              onValueChange={value =>
-                setRange(value as "ALL" | "24H" | "7D" | "30D")
-              }
-            >
-              <SelectTrigger className="h-8 w-[140px]">
-                <Filter className="mr-1 h-3 w-3" />
-                <SelectValue placeholder="Date range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All time</SelectItem>
-                <SelectItem value="24H">Last 24h</SelectItem>
-                <SelectItem value="7D">Last 7 days</SelectItem>
-                <SelectItem value="30D">Last 30 days</SelectItem>
-              </SelectContent>
-            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-8 w-[220px] justify-start text-left font-normal",
+                    !dateRange?.from && "text-muted-foreground",
+                  )}
+                >
+                  <CalendarIcon className="mr-1.5 h-3 w-3" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "MMM d, yyyy")} -{" "}
+                        {format(dateRange.to, "MMM d, yyyy")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "MMM d, yyyy")
+                    )
+                  ) : (
+                    <span>Date range: All time</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3" align="start">
+                <div className="space-y-3">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                  />
+                  <div className="flex flex-wrap gap-2 items-center pt-2 border-t">
+                    <span className="text-[11px] text-muted-foreground mr-1">
+                      Quick ranges:
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => {
+                        const now = new Date();
+                        const from = subDays(now, 1);
+                        setDateRange({ from, to: now });
+                      }}
+                    >
+                      Last 24h
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => {
+                        const now = new Date();
+                        const from = subDays(now, 6);
+                        setDateRange({ from, to: now });
+                      }}
+                    >
+                      Last 7 days
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => {
+                        const now = new Date();
+                        const from = subDays(now, 29);
+                        setDateRange({ from, to: now });
+                      }}
+                    >
+                      Last 30 days
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      onClick={() => setDateRange(undefined)}
+                    >
+                      All time
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <ScrollArea className="max-h-[600px] rounded-md border">
-            <div className="min-w-[900px] p-1">
-              <SortableDataTable
-                data={filteredAlerts}
-                columns={columns}
-                getRowId={row => row.id}
-                emptyMessage={emptyMessage}
-              />
-            </div>
-          </ScrollArea>
+          <SortableDataTable
+            data={filteredAlerts}
+            columns={columns}
+            getRowId={row => row.id}
+            emptyMessage={emptyMessage}
+            onSortedDataChange={rows => setSortedAlerts(rows)}
+          />
         </CardContent>
       </Card>
     </div>

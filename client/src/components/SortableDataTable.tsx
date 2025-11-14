@@ -116,7 +116,7 @@ export function SortableDataTable<T>({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
