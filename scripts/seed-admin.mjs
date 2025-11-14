@@ -4,7 +4,8 @@
  * This script creates the admin user in the database
  */
 
-import { drizzle } from 'drizzle-orm/mysql2';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import { users } from '../drizzle/schema.ts';
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -14,7 +15,10 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const db = drizzle(DATABASE_URL);
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+});
+const db = drizzle(pool);
 
 async function seedAdmin() {
   console.log('Seeding admin user...');
@@ -23,19 +27,23 @@ async function seedAdmin() {
     // Create admin user with specific credentials
     // Note: In Manus OAuth system, the actual authentication happens via OAuth
     // This is just for display/reference purposes
-    await db.insert(users).values({
-      openId: 'admin-baltimore-2025',
-      name: 'Baltimore Admin',
-      email: 'admin@visium.com',
-      role: 'admin',
-      loginMethod: 'oauth',
-    }).onDuplicateKeyUpdate({
-      set: {
+    await db
+      .insert(users)
+      .values({
+        openId: 'admin-baltimore-2025',
         name: 'Baltimore Admin',
         email: 'admin@visium.com',
         role: 'admin',
-      }
-    });
+        loginMethod: 'oauth',
+      })
+      .onConflictDoUpdate({
+        target: users.openId,
+        set: {
+          name: 'Baltimore Admin',
+          email: 'admin@visium.com',
+          role: 'admin',
+        },
+      });
     
     console.log('✓ Admin user created successfully');
     console.log('  Email: admin@visium.com');
