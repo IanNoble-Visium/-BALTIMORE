@@ -210,9 +210,9 @@ export default function Dashboard() {
     const severity = getMaxSeverityFromStats();
     const tone = toneForSeverity(severity);
 
-    const text = `Baltimore status update. There are ${deviceStats.total} devices, with ${deviceStats.online} online, ` +
+    const text = `Baltimore Smart City Command Center status update. There are ${deviceStats.total} devices, with ${deviceStats.online} online, ` +
       `${deviceStats.offline} offline, and ${alertStats.active} active alerts. ` +
-      `Overall health score is ${kpis.deviceHealthScore ?? 0} percent.`;
+      `Overall system health score is ${kpis.deviceHealthScore ?? 0} percent.`;
 
     try {
       const result = await speakText.mutateAsync({ text, tone });
@@ -239,9 +239,9 @@ export default function Dashboard() {
 
     const tone = toneForSeverity(mostSevere?.severity);
     const text = mostSevere
-      ? `${mostSevere.severity} alert. ${mostSevere.alertType} at device ${mostSevere.deviceId}, ` +
+      ? `Baltimore Smart City Command Center ${mostSevere.severity} alert. ${mostSevere.alertType} at device ${mostSevere.deviceId}, ` +
         `reported at ${new Date(mostSevere.timestamp).toLocaleString()}.`
-      : "There are no active alerts.";
+      : "Baltimore Smart City Command Center update. There are no active alerts.";
 
     try {
       const result = await speakText.mutateAsync({ text, tone });

@@ -30,6 +30,7 @@ import {
   XCircle,
   Clock,
   Activity,
+  Volume2,
 } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +41,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 
 /**
@@ -53,6 +55,8 @@ import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 export default function AI() {
   const [patternTimeRange, setPatternTimeRange] = useState<"24h" | "7d" | "30d">("7d");
   const [summaryTimeRange, setSummaryTimeRange] = useState<"24h" | "7d" | "30d">("24h");
+  const speakText = trpc.ai.speakText.useMutation();
+  const [aiBriefingAudioUrl, setAiBriefingAudioUrl] = useState<string | null>(null);
 
   // Fetch AI data
   const { data: patterns, isLoading: patternsLoading, refetch: refetchPatterns } = 
@@ -126,10 +130,59 @@ export default function AI() {
     },
   };
 
+  const playAudioUrl = (url: string | null) => {
+    if (!url) return;
+    const audio = new Audio(url);
+    audio.play().catch(err => {
+      console.warn("[AI Insights] Failed to play briefing audio", err);
+    });
+  };
+
+  const handlePlayAiBriefing = async () => {
+    if (aiBriefingAudioUrl) {
+      playAudioUrl(aiBriefingAudioUrl);
+      return;
+    }
+
+    const parts: string[] = [];
+    parts.push("Baltimore Smart City Command Center AI insights briefing.");
+
+    if (patterns && !patternsLoading) {
+      parts.push("Alert pattern analysis is available for the selected time range.");
+    }
+
+    if (summary && !summaryLoading) {
+      parts.push("An executive summary of recent alerts has been generated with key points and recommendations.");
+    }
+
+    if (maintenance && !maintenanceLoading) {
+      const totalDevices = maintenance.devices?.length ?? 0;
+      parts.push(
+        `Predictive maintenance scores are available for ${totalDevices} devices, with a focus on critical and high priority assets.`,
+      );
+    }
+
+    if (parts.length === 1) {
+      parts.push("AI services are still loading. Please wait a moment and try again.");
+    }
+
+    const tone = "Calm, executive AI insights briefing for city operations leaders:";
+    const text = parts.join(" ");
+
+    try {
+      const result = await speakText.mutateAsync({ text, tone });
+      const url = `data:audio/mp3;base64,${result.audioBase64}`;
+      setAiBriefingAudioUrl(url);
+      playAudioUrl(url);
+    } catch (err) {
+      console.warn("[AI Insights] speakText briefing failed", err);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Brain className="h-8 w-8 text-primary" />
@@ -139,6 +192,23 @@ export default function AI() {
             Intelligent analysis and predictive maintenance for Baltimore Smart City
           </p>
         </div>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                disabled={speakText.isPending}
+                onClick={handlePlayAiBriefing}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 text-primary bg-background hover:bg-primary/10 disabled:opacity-50"
+              >
+                <Volume2 className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" align="center">
+              <span className="text-xs">Play AI insights briefing</span>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <Tabs defaultValue="patterns" className="space-y-4">

@@ -368,7 +368,7 @@ export default function Analytics() {
     const mostCommonSeverity = alertStats.bySeverity?.[0]?.severity ?? null;
 
     const tone = "Calm, executive analytics summary:";
-    const text = `Baltimore analytics summary. There are ${totalDevices} devices with most in ${mostCommonStatus} status, ` +
+    const text = `Baltimore Smart City Command Center analytics summary. There are ${totalDevices} devices with most in ${mostCommonStatus} status, ` +
       `and ${totalAlerts} historical alerts in the current view. ` +
       (mostCommonSeverity
         ? `Most alerts are ${mostCommonSeverity} severity.`

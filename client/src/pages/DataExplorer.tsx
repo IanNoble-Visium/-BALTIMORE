@@ -614,7 +614,7 @@ export default function DataExplorer() {
                   <p className="text-xs text-muted-foreground">
                     {alertsQuery.isLoading
                       ? "Loading alerts…"
-                      : `${filteredAlerts.length.toLocaleString()} alerts (page ${alertPage} of ${alertPageCount})`}
+                      : `${filteredAlerts.length.toLocaleString()} alerts matching current filters`}
                   </p>
                 </div>
                 {/* Sparkline Chart */}
@@ -650,7 +650,6 @@ export default function DataExplorer() {
                     setAlertSeverity("critical");
                     setAlertDateRange("24H");
                     setAlertStatus("ALL");
-                    setAlertPage(1);
                   }}
                 >
                   Critical 24h
@@ -663,7 +662,6 @@ export default function DataExplorer() {
                     setAlertStatus("active");
                     setAlertDateRange("7D");
                     setAlertSeverity("ALL");
-                    setAlertPage(1);
                   }}
                 >
                   Active 7 days
@@ -676,7 +674,6 @@ export default function DataExplorer() {
                     setAlertSeverity("high");
                     setAlertDateRange("24H");
                     setAlertStatus("ALL");
-                    setAlertPage(1);
                   }}
                 >
                   High+ 24h
@@ -690,7 +687,6 @@ export default function DataExplorer() {
                     setAlertStatus("ALL");
                     setAlertDateRange("ALL");
                     setAlertSearch("");
-                    setAlertPage(1);
                   }}
                 >
                   <X className="h-3 w-3 mr-1" />
@@ -704,7 +700,6 @@ export default function DataExplorer() {
                   <Input
                     value={alertSearch}
                     onChange={e => {
-                      setAlertPage(1);
                       setAlertSearch(e.target.value);
                     }}
                     placeholder="Search by device, type, or description"
@@ -714,7 +709,6 @@ export default function DataExplorer() {
                 <Select
                   value={alertSeverity}
                   onValueChange={val => {
-                    setAlertPage(1);
                     setAlertSeverity(val);
                   }}
                 >
@@ -733,7 +727,6 @@ export default function DataExplorer() {
                 <Select
                   value={alertStatus}
                   onValueChange={val => {
-                    setAlertPage(1);
                     setAlertStatus(val);
                   }}
                 >
@@ -751,7 +744,6 @@ export default function DataExplorer() {
                 <Select
                   value={alertDateRange}
                   onValueChange={val => {
-                    setAlertPage(1);
                     setAlertDateRange(val as "ALL" | "24H" | "7D");
                   }}
                 >
@@ -769,16 +761,22 @@ export default function DataExplorer() {
                   size="sm"
                   variant="outline"
                   className="h-9 text-xs"
-                  onClick={() =>
-                    downloadCsv("baltimore_alerts.csv", filteredAlerts.map(a => ({
-                      timestamp: a.timestamp ? new Date(a.timestamp).toISOString() : "",
-                      deviceId: a.deviceId,
-                      alertType: a.alertType,
-                      severity: a.severity,
-                      status: a.status,
-                      description: a.description ?? "",
-                    })))
-                  }
+                  onClick={() => {
+                    const exportAlerts = sortedAlerts.length
+                      ? sortedAlerts
+                      : filteredAlerts;
+                    downloadCsv(
+                      "baltimore_alerts.csv",
+                      exportAlerts.map(a => ({
+                        timestamp: a.timestamp ? new Date(a.timestamp).toISOString() : "",
+                        deviceId: a.deviceId,
+                        alertType: a.alertType,
+                        severity: a.severity,
+                        status: a.status,
+                        description: a.description ?? "",
+                      })),
+                    );
+                  }}
                   disabled={!filteredAlerts.length}
                 >
                   <Download className="h-3.5 w-3.5 mr-1" />
@@ -787,83 +785,21 @@ export default function DataExplorer() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <ScrollArea className="max-h-[480px] rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[150px]">Time</TableHead>
-                      <TableHead>Device ID</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Description</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {alertsQuery.isLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-xs text-muted-foreground">
-                          Loading…
-                        </TableCell>
-                      </TableRow>
-                    ) : !alertPageItems.length ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-xs text-muted-foreground">
-                          No alerts match the current filters.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      alertPageItems.map(alert => (
-                        <TableRow key={alert.id}>
-                          <TableCell className="text-[11px] text-muted-foreground">
-                            {alert.timestamp ? new Date(alert.timestamp).toLocaleString() : "–"}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {alert.deviceId}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {alert.alertType}
-                          </TableCell>
-                          <TableCell className="text-xs capitalize">
-                            {alert.severity}
-                          </TableCell>
-                          <TableCell className="text-xs capitalize">
-                            {alert.status}
-                          </TableCell>
-                          <TableCell className="text-[11px] text-muted-foreground">
-                            {alert.description || "–"}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-              <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-                <span>
-                  Page {alertPage} of {alertPageCount}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={alertPage <= 1}
-                    onClick={() => setAlertPage(p => Math.max(1, p - 1))}
-                    className="h-7 px-2"
-                  >
-                    Prev
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={alertPage >= alertPageCount}
-                    onClick={() => setAlertPage(p => Math.min(alertPageCount, p + 1))}
-                    className="h-7 px-2"
-                  >
-                    Next
-                  </Button>
+              {alertsQuery.isLoading ? (
+                <div className="py-6 text-center text-xs text-muted-foreground">
+                  Loading…
                 </div>
-              </div>
+              ) : (
+                <SortableDataTable
+                  data={filteredAlerts}
+                  columns={alertColumns}
+                  getRowId={alert => String(alert.id)}
+                  initialPageSize={25}
+                  pageSizeOptions={[25, 50, 100]}
+                  emptyMessage="No alerts match the current filters."
+                  onSortedDataChange={rows => setSortedAlerts(rows)}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
