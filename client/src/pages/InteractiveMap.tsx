@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import mapboxgl from "mapbox-gl";
 import { trpc } from "@/lib/trpc";
 import { MapboxMap } from "@/components/Map";
@@ -83,6 +83,7 @@ export default function InteractiveMap() {
   const [mapReady, setMapReady] = useState(false);
 
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const [spokenDeviceId, setSpokenDeviceId] = useState<string | null>(null);
 
   const selectedDevice = useMemo(
     () => devices.find(d => d.deviceId === selectedDeviceId) ?? null,
@@ -97,6 +98,8 @@ export default function InteractiveMap() {
       refetchIntervalInBackground: true,
     },
   );
+
+  const speakAlert = trpc.ai.speakAlert.useMutation();
 
   const alertsByDevice = useMemo(() => {
     const map = new Map<string, typeof alertsQuery.data>();
@@ -175,6 +178,12 @@ export default function InteractiveMap() {
 
   const allSeverities = ["critical", "high", "medium", "low"] as const;
 
+  const primaryAlertForDevice = useMemo(() => {
+    if (!deviceAlerts.data || deviceAlerts.data.length === 0) return null;
+    // Use the most recent alert (assuming data is sorted latest-first; fallback to last element).
+    return deviceAlerts.data[0] ?? deviceAlerts.data[deviceAlerts.data.length - 1] ?? null;
+  }, [deviceAlerts.data]);
+
   const filteredDevices = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -228,6 +237,45 @@ export default function InteractiveMap() {
   };
 
   const isDataEmpty = !devices || devices.length === 0;
+
+  // When the device dialog opens, play an urgent spoken announcement for the primary alert.
+  useEffect(() => {
+    if (!deviceDialogOpen) {
+      setSpokenDeviceId(null);
+      return;
+    }
+
+    if (!selectedDevice || !primaryAlertForDevice) return;
+    if (spokenDeviceId === selectedDevice.deviceId) return;
+    if (speakAlert.isPending) return;
+
+    const title = primaryAlertForDevice.alertType || "Alert";
+    const severity = primaryAlertForDevice.severity;
+    const deviceName = selectedDevice.nodeName || selectedDevice.deviceId;
+
+    speakAlert
+      .mutateAsync({ title, deviceName, severity })
+      .then(result => {
+        try {
+          const audio = new Audio(`data:audio/mp3;base64,${result.audioBase64}`);
+          audio.play().catch(err => {
+            console.warn("[InteractiveMap] Failed to play alert audio", err);
+          });
+          setSpokenDeviceId(selectedDevice.deviceId);
+        } catch (err) {
+          console.warn("[InteractiveMap] Error handling alert audio", err);
+        }
+      })
+      .catch(err => {
+        console.warn("[InteractiveMap] speakAlert failed", err);
+      });
+  }, [
+    deviceDialogOpen,
+    selectedDevice,
+    primaryAlertForDevice,
+    spokenDeviceId,
+    speakAlert,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -650,17 +698,27 @@ export default function InteractiveMap() {
           }
         }}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedDevice?.nodeName || selectedDevice?.deviceId || "Device Details"}
-            </DialogTitle>
-            <DialogDescription>
-              Real-time view of Ubicell device status, recent alerts, and location in
-              Baltimore.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 text-sm">
+        <DialogContent className="max-w-2xl overflow-hidden p-0">
+          <div className="relative">
+            <video
+              className="absolute inset-0 h-full w-full object-cover opacity-40"
+              autoPlay
+              muted
+              loop
+              playsInline
+              src="/videos/_21_emergency_202511140242_7u9pc.mp4"
+            />
+            <div className="relative z-10 space-y-4 bg-black/80 p-6 backdrop-blur-md text-sm">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedDevice?.nodeName || selectedDevice?.deviceId || "Device Details"}
+                </DialogTitle>
+                <DialogDescription>
+                  Real-time view of Ubicell device status, recent alerts, and location in
+                  Baltimore.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 text-sm">
             {selectedDevice ? (
               <div className="grid gap-3 md:grid-cols-3 text-xs">
                 <div className="space-y-1">
@@ -741,6 +799,8 @@ export default function InteractiveMap() {
                     </Table>
                   </ScrollArea>
                 )}
+              </div>
+            </div>
               </div>
             </div>
           </div>

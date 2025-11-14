@@ -3,6 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
+import { ENV } from "./_core/env";
 import { z } from "zod";
 import {
   getAllDevices,
@@ -176,6 +177,58 @@ export const appRouter = router({
         }
 
         return { content, raw: result } as const;
+      }),
+
+    speakAlert: publicProcedure
+      .input(
+        z.object({
+          title: z.string(),
+          deviceName: z.string().optional(),
+          severity: z.string().optional(),
+        }),
+      )
+      .mutation(async ({ input }) => {
+        if (!ENV.openAiApiKey) {
+          throw new Error("OpenAI API key is not configured");
+        }
+
+        const voices = ["alloy", "shimmer", "verse"] as const;
+        const voice = voices[Math.floor(Math.random() * voices.length)];
+
+        const { title, deviceName, severity } = input;
+        const parts = [
+          "Urgent alert.",
+          title,
+          deviceName ? `at device ${deviceName}.` : undefined,
+          severity ? `Severity ${severity}.` : undefined,
+        ].filter(Boolean);
+
+        const text = parts.join(" ");
+
+        const response = await fetch("https://api.openai.com/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${ENV.openAiApiKey}`,
+          },
+          body: JSON.stringify({
+            model: "tts-1",
+            voice,
+            input: text,
+            format: "mp3",
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "");
+          console.error("[AI] speakAlert OpenAI error", response.status, errorText);
+          throw new Error("Failed to generate alert audio");
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+
+        return { audioBase64, voice } as const;
       }),
   }),
 
