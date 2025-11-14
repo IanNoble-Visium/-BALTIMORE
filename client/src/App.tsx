@@ -13,6 +13,7 @@ import DataTables from "./pages/DataTables";
 import Analytics from "./pages/Analytics";
 import InteractiveMap from "./pages/InteractiveMap";
 import NetworkGraph from "./pages/NetworkGraph";
+import AI from "./pages/AI";
 
 function DashboardRoute() {
   return (
@@ -71,6 +72,14 @@ function NetworkGraphRoute() {
   );
 }
 
+function AIRoute() {
+  return (
+    <DashboardLayout>
+      <AI />
+    </DashboardLayout>
+  );
+}
+
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
@@ -83,6 +92,7 @@ function Router() {
       <Route path={"/tables"} component={DataTablesRoute} />
       <Route path={"/analytics"} component={AnalyticsRoute} />
       <Route path={"/network"} component={NetworkGraphRoute} />
+      <Route path={"/ai"} component={AIRoute} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

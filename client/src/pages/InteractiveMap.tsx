@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertTriangle, MapPin, Layers, Radar, RefreshCw, Search, SlidersHorizontal, ZoomIn } from "lucide-react";
+import { AlertTriangle, MapPin, Layers, Radar, RefreshCw, Search, SlidersHorizontal, ZoomIn, Volume2 } from "lucide-react";
 
 /**
  * Dedicated Interactive Map dashboard page.
@@ -84,6 +84,7 @@ export default function InteractiveMap() {
 
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [spokenDeviceId, setSpokenDeviceId] = useState<string | null>(null);
+  const [lastAlertAudioUrl, setLastAlertAudioUrl] = useState<string | null>(null);
 
   const selectedDevice = useMemo(
     () => devices.find(d => d.deviceId === selectedDeviceId) ?? null,
@@ -242,6 +243,7 @@ export default function InteractiveMap() {
   useEffect(() => {
     if (!deviceDialogOpen) {
       setSpokenDeviceId(null);
+      setLastAlertAudioUrl(null);
       return;
     }
 
@@ -257,7 +259,9 @@ export default function InteractiveMap() {
       .mutateAsync({ title, deviceName, severity })
       .then(result => {
         try {
-          const audio = new Audio(`data:audio/mp3;base64,${result.audioBase64}`);
+          const url = `data:audio/mp3;base64,${result.audioBase64}`;
+          setLastAlertAudioUrl(url);
+          const audio = new Audio(url);
           audio.play().catch(err => {
             console.warn("[InteractiveMap] Failed to play alert audio", err);
           });
@@ -698,25 +702,52 @@ export default function InteractiveMap() {
           }
         }}
       >
-        <DialogContent className="max-w-2xl overflow-hidden p-0">
+        <DialogContent className="max-w-2xl overflow-hidden p-0 bg-black/90">
           <div className="relative">
             <video
-              className="absolute inset-0 h-full w-full object-cover opacity-40"
+              className="absolute inset-0 h-full w-full object-cover opacity-70 saturate-150"
               autoPlay
               muted
               loop
               playsInline
               src="/videos/_21_emergency_202511140242_7u9pc.mp4"
             />
-            <div className="relative z-10 space-y-4 bg-black/80 p-6 backdrop-blur-md text-sm">
-              <DialogHeader>
-                <DialogTitle>
-                  {selectedDevice?.nodeName || selectedDevice?.deviceId || "Device Details"}
-                </DialogTitle>
-                <DialogDescription>
-                  Real-time view of Ubicell device status, recent alerts, and location in
-                  Baltimore.
-                </DialogDescription>
+            <div className="relative z-10 space-y-4 bg-black/65 p-6 backdrop-blur-[6px] text-sm">
+              <DialogHeader className="flex flex-row items-start justify-between gap-3">
+                <div>
+                  <DialogTitle>
+                    {selectedDevice?.nodeName || selectedDevice?.deviceId || "Device Details"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Real-time view of Ubicell device status, recent alerts, and location in
+                    Baltimore.
+                  </DialogDescription>
+                </div>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full border-[#FFC72C]/60 bg-black/60 text-[#FFC72C] hover:bg-[#111827] hover:text-[#F9FAFB]"
+                        disabled={!lastAlertAudioUrl}
+                        onClick={() => {
+                          if (!lastAlertAudioUrl) return;
+                          const audio = new Audio(lastAlertAudioUrl);
+                          audio.play().catch(err => {
+                            console.warn("[InteractiveMap] Failed to replay alert audio", err);
+                          });
+                        }}
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" align="center">
+                      <span className="text-xs">Replay alert audio</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </DialogHeader>
               <div className="space-y-4 text-sm">
             {selectedDevice ? (
