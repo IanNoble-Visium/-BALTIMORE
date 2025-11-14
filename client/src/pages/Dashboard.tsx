@@ -489,7 +489,10 @@ export default function Dashboard() {
                     Alert history will appear here as incidents are generated.
                   </p>
                 ) : (
-                  <ChartContainer config={incidentChartConfig} className="h-56">
+                  <ChartContainer
+                    config={incidentChartConfig}
+                    className="h-56 rounded-lg border border-border bg-muted/40"
+                  >
                     <LineChart
                       data={incidentTimeline}
                       margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
@@ -526,7 +529,10 @@ export default function Dashboard() {
                     Alert type distribution will appear as alerts accumulate.
                   </p>
                 ) : (
-                  <ChartContainer config={typeChartConfig} className="h-56">
+                  <ChartContainer
+                    config={typeChartConfig}
+                    className="h-56 rounded-lg border border-border bg-muted/40"
+                  >
                     <PieChart>
                       <Pie
                         dataKey="count"
@@ -572,7 +578,10 @@ export default function Dashboard() {
                     Severity distribution will appear here once alerts exist.
                   </p>
                 ) : (
-                  <ChartContainer config={severityChartConfig} className="h-56">
+                  <ChartContainer
+                    config={severityChartConfig}
+                    className="h-56 rounded-lg border border-border bg-muted/40"
+                  >
                     <BarChart
                       data={severityDistribution}
                       margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
@@ -611,7 +620,10 @@ export default function Dashboard() {
                     Resolution KPIs will appear here as incidents are resolved.
                   </p>
                 ) : (
-                  <ChartContainer config={resolutionChartConfig} className="h-56">
+                  <ChartContainer
+                    config={resolutionChartConfig}
+                    className="h-56 rounded-lg border border-border bg-muted/40"
+                  >
                     <AreaChart
                       data={resolutionTrend}
                       margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
