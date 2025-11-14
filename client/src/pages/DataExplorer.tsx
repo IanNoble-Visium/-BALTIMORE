@@ -233,6 +233,38 @@ export default function DataExplorer() {
     },
   });
 
+  // Proper CSV parser that handles quoted fields and commas within fields
+  const parseCSVLine = (line: string): string[] => {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          // Escaped quote
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // End of field
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    // Add last field
+    values.push(current.trim());
+    return values;
+  };
+
   const handleFile = (file: File) => {
     setUploadError(null);
     setImportResult(null);
@@ -241,22 +273,53 @@ export default function DataExplorer() {
     reader.onload = e => {
       try {
         const text = String(e.target?.result ?? "");
-        const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
-        if (lines.length < 2) {
-          setUploadError("File does not contain enough rows.");
+        const lines = text.split(/\r?\n/);
+        
+        // Find header line (first non-empty line)
+        let headerLineIndex = -1;
+        let headerLine = '';
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].trim().length > 0) {
+            headerLine = lines[i];
+            headerLineIndex = i;
+            break;
+          }
+        }
+        
+        if (!headerLine) {
+          setUploadError("File does not contain a header row.");
           return;
         }
-        const headerLine = lines[0];
-        const headers = headerLine.split(",").map(h => h.trim());
-        const bodyLines = lines.slice(1);
-        const rows: Record<string, string>[] = bodyLines.map(line => {
-          const cells = line.split(",");
-          const row: Record<string, string> = {};
-          headers.forEach((h, idx) => {
-            row[h] = (cells[idx] ?? "").trim();
-          });
-          return row;
-        });
+        
+        const headers = parseCSVLine(headerLine).map(h => h.trim().replace(/^"|"$/g, ''));
+        const bodyLines = lines.slice(headerLineIndex + 1);
+        
+        const rows: Record<string, string>[] = [];
+        for (const line of bodyLines) {
+          if (line.trim().length === 0) continue; // Skip empty lines
+          
+          try {
+            const cells = parseCSVLine(line);
+            const row: Record<string, string> = {};
+            headers.forEach((h, idx) => {
+              let value = (cells[idx] ?? "").trim();
+              // Remove surrounding quotes if present
+              if (value.startsWith('"') && value.endsWith('"')) {
+                value = value.slice(1, -1).replace(/""/g, '"');
+              }
+              row[h] = value;
+            });
+            rows.push(row);
+          } catch (err) {
+            console.warn('[Upload] Failed to parse line:', line.substring(0, 50));
+            // Continue with other rows
+          }
+        }
+        
+        if (rows.length === 0) {
+          setUploadError("No valid data rows found in file.");
+          return;
+        }
 
         // Simple type inference
         const schema = headers.map(field => {
