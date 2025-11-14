@@ -7,8 +7,8 @@ import DashboardLayout from "./components/DashboardLayout";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
-import ComponentsShowcase from "./pages/ComponentShowcase";
 import Ubicell from "./pages/Ubicell";
+import DataExplorer from "./pages/DataExplorer";
 
 function DashboardRoute() {
   return (
@@ -18,18 +18,19 @@ function DashboardRoute() {
   );
 }
 
-function ComponentsRoute() {
-  return (
-    <DashboardLayout>
-      <ComponentsShowcase />
-    </DashboardLayout>
-  );
-}
 
 function UbicellRoute() {
   return (
     <DashboardLayout>
       <Ubicell />
+    </DashboardLayout>
+  );
+}
+
+function DataExplorerRoute() {
+  return (
+    <DashboardLayout>
+      <DataExplorer />
     </DashboardLayout>
   );
 }
@@ -41,7 +42,7 @@ function Router() {
       <Route path={"/"} component={Landing} />
       <Route path={"/dashboard"} component={DashboardRoute} />
       <Route path={"/ubicell"} component={UbicellRoute} />
-      <Route path={"/components"} component={ComponentsRoute} />
+      <Route path={"/explorer"} component={DataExplorerRoute} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

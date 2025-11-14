@@ -42,6 +42,22 @@ import {
   AreaChart,
 } from "recharts";
 import { toast as sonnerToast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 /**
  * Main Dashboard for Baltimore Smart City
@@ -63,20 +79,50 @@ export default function Dashboard() {
     }
   }, [user, loading, setLocation]);
 
-  // Fetch dashboard data
-  const { data: kpis, isLoading: kpisLoading } = trpc.kpis.getLatest.useQuery();
+  // Fetch dashboard data with light polling for "real-time" feel
+  const { data: kpis, isLoading: kpisLoading } = trpc.kpis.getLatest.useQuery(undefined, {
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
+  });
   const { data: deviceStats, isLoading: devicesLoading } =
-    trpc.devices.getStatistics.useQuery();
-  const { data: alertStats, isLoading: alertsLoading } =
-    trpc.alerts.getStatistics.useQuery();
-  const { data: devices } = trpc.devices.getAll.useQuery();
-  const { data: activeAlerts } = trpc.alerts.getActive.useQuery();
-  const { data: baltimoreData, isLoading: baltimoreLoading } =
-    trpc.baltimore.getRecent.useQuery({
-      limit: 10,
+    trpc.devices.getStatistics.useQuery(undefined, {
+      refetchInterval: 15000,
+      refetchIntervalInBackground: true,
     });
-  const { data: kpiHistory } = trpc.kpis.getHistory.useQuery({ limit: 24 });
-  const { data: alertHistory } = trpc.alerts.getAll.useQuery();
+  const { data: alertStats, isLoading: alertsLoading } =
+    trpc.alerts.getStatistics.useQuery(undefined, {
+      refetchInterval: 15000,
+      refetchIntervalInBackground: true,
+    });
+  const { data: devices } = trpc.devices.getAll.useQuery(undefined, {
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
+  });
+  const { data: activeAlerts } = trpc.alerts.getActive.useQuery(undefined, {
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+  });
+  const { data: baltimoreData, isLoading: baltimoreLoading } =
+    trpc.baltimore.getRecent.useQuery(
+      {
+        limit: 10,
+      },
+      {
+        refetchInterval: 60000,
+        refetchIntervalInBackground: true,
+      },
+    );
+  const { data: kpiHistory } = trpc.kpis.getHistory.useQuery(
+    { limit: 24 },
+    {
+      refetchInterval: 30000,
+      refetchIntervalInBackground: true,
+    },
+  );
+  const { data: alertHistory } = trpc.alerts.getAll.useQuery(undefined, {
+    refetchInterval: 30000,
+    refetchIntervalInBackground: true,
+  });
 
   // AI assistant state
   const [chatMessages, setChatMessages] = useState<Message[]>([
@@ -228,6 +274,24 @@ export default function Dashboard() {
       console.error("Error seeding data:", error);
     }
   };
+
+  // Map drill-down state
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
+
+  const selectedDevice = useMemo(
+    () => devices?.find(d => d.deviceId === selectedDeviceId) ?? null,
+    [devices, selectedDeviceId],
+  );
+
+  const deviceAlerts = trpc.alerts.getByDevice.useQuery(
+    { deviceId: selectedDeviceId ?? "" },
+    {
+      enabled: Boolean(selectedDeviceId && deviceDialogOpen),
+      refetchInterval: 15000,
+      refetchIntervalInBackground: true,
+    },
+  );
 
   const handleLogout = () => {
     logout();
@@ -575,7 +639,14 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {devices && devices.length > 0 ? (
-                <MapboxMap className="mt-2" devices={devices} />
+                <MapboxMap
+                  className="mt-2"
+                  devices={devices}
+                  onDeviceClick={id => {
+                    setSelectedDeviceId(id);
+                    setDeviceDialogOpen(true);
+                  }}
+                />
               ) : (
                 <div className="h-[500px] bg-muted/20 rounded-lg flex items-center justify-center border border-border">
                   <div className="text-center space-y-2">
@@ -791,6 +862,112 @@ export default function Dashboard() {
           <p>Powered by Visium Technologies • World Wide Technology • Ubicquia</p>
         </div>
       </main>
+
+      {/* Device Drill-down Dialog */}
+      <Dialog
+        open={deviceDialogOpen}
+        onOpenChange={open => {
+          setDeviceDialogOpen(open);
+          if (!open) {
+            setSelectedDeviceId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedDevice?.nodeName || selectedDevice?.deviceId || "Device Details"}
+            </DialogTitle>
+            <DialogDescription>
+              Real-time view of Ubicell device status, recent alerts, and location in Baltimore.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            {selectedDevice ? (
+              <div className="grid gap-3 md:grid-cols-3 text-xs">
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Device ID</p>
+                  <p className="font-mono text-foreground text-xs">{selectedDevice.deviceId}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Status</p>
+                  <p className="font-semibold">{selectedDevice.nodeStatus || "Unknown"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Network</p>
+                  <p>{selectedDevice.networkType || "N/A"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Alert Type</p>
+                  <p>{selectedDevice.alertType || "None"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Burn Hours</p>
+                  <p>{selectedDevice.burnHours || "–"}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Location</p>
+                  <p>
+                    {selectedDevice.latitude && selectedDevice.longitude
+                      ? `${selectedDevice.latitude}, ${selectedDevice.longitude}`
+                      : "Unknown"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Select a device on the map to view details.
+              </p>
+            )}
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Recent Alerts for this Device
+              </p>
+              <div className="border rounded-md bg-muted/30">
+                {deviceAlerts.isLoading ? (
+                  <div className="p-4 text-xs text-muted-foreground">Loading alerts…</div>
+                ) : !deviceAlerts.data || deviceAlerts.data.length === 0 ? (
+                  <div className="p-4 text-xs text-muted-foreground">
+                    No alerts found for this device.
+                  </div>
+                ) : (
+                  <ScrollArea className="max-h-64">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[120px]">Time</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Severity</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {deviceAlerts.data.slice(0, 25).map(alert => (
+                          <TableRow key={alert.id}>
+                            <TableCell className="text-[11px] text-muted-foreground">
+                              {new Date(alert.timestamp).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-xs font-medium">
+                              {alert.alertType}
+                            </TableCell>
+                            <TableCell className="text-xs capitalize">
+                              {alert.severity}
+                            </TableCell>
+                            <TableCell className="text-xs capitalize">
+                              {alert.status}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -201,6 +201,48 @@ export function MapboxMap({ className, devices, onDeviceClick }: MapboxMapProps)
         },
       });
 
+      // 3D buildings layer for extra depth when zoomed in
+      const style = map.getStyle();
+      const labelLayerId = style.layers?.find(
+        layer => layer.type === "symbol" && (layer.layout as any)?.["text-field"],
+      )?.id;
+
+      if (!map.getLayer("3d-buildings")) {
+        map.addLayer(
+          {
+            id: "3d-buildings",
+            source: "composite",
+            "source-layer": "building",
+            filter: ["==", "extrude", "true"],
+            type: "fill-extrusion",
+            minzoom: 15,
+            paint: {
+              "fill-extrusion-color": "#4b5563",
+              "fill-extrusion-height": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                15,
+                0,
+                16,
+                ["get", "height"],
+              ],
+              "fill-extrusion-base": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                15,
+                0,
+                16,
+                ["get", "min_height"],
+              ],
+              "fill-extrusion-opacity": 0.6,
+            },
+          },
+          labelLayerId,
+        );
+      }
+
       // Click cluster to zoom in
       map.on("click", "devices-clusters", e => {
         const features = map.queryRenderedFeatures(e.point, {
@@ -258,6 +300,78 @@ export function MapboxMap({ className, devices, onDeviceClick }: MapboxMapProps)
           map.getCanvas().style.cursor = "";
         });
       });
+
+      // Subtle 3D flyover path across key Baltimore viewpoints
+      const flyoverKeyframes: {
+        center: [number, number];
+        zoom: number;
+        pitch: number;
+        bearing: number;
+        duration: number;
+      }[] = [
+        {
+          center: [-76.6122, 39.2904], // Downtown
+          zoom: 13.2,
+          pitch: 60,
+          bearing: -20,
+          duration: 4000,
+        },
+        {
+          center: [-76.609, 39.285], // Inner Harbor
+          zoom: 14,
+          pitch: 70,
+          bearing: 10,
+          duration: 4500,
+        },
+        {
+          center: [-76.621, 39.283], // Camden Yards
+          zoom: 14,
+          pitch: 60,
+          bearing: 120,
+          duration: 4500,
+        },
+        {
+          center: [-76.6005, 39.3005], // Johns Hopkins / East Baltimore corridor
+          zoom: 13.5,
+          pitch: 65,
+          bearing: -90,
+          duration: 4500,
+        },
+      ];
+
+      let currentKeyframe = 0;
+
+      const runFlyover = () => {
+        if (currentKeyframe >= flyoverKeyframes.length) {
+          // Return to original viewpoint at the end
+          map.easeTo({
+            center: [-76.6122, 39.2904],
+            zoom: 12,
+            pitch: 45,
+            bearing: -17.6,
+            duration: 3000,
+            essential: true,
+          });
+          return;
+        }
+
+        const frame = flyoverKeyframes[currentKeyframe];
+        currentKeyframe += 1;
+
+        map.flyTo({
+          center: frame.center,
+          zoom: frame.zoom,
+          pitch: frame.pitch,
+          bearing: frame.bearing,
+          duration: frame.duration,
+          essential: true,
+        });
+
+        setTimeout(runFlyover, frame.duration + 800);
+      };
+
+      // Kick off a single cinematic flyover shortly after load
+      setTimeout(runFlyover, 1200);
 
       setMapLoaded(true);
     });

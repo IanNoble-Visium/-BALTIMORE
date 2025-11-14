@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Zap } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Zap, Database } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -30,7 +30,7 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Zap, label: "Ubicell UGU", path: "/ubicell" },
-  { icon: Users, label: "Component Showcase", path: "/components" },
+  { icon: Database, label: "Data Explorer", path: "/explorer" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
