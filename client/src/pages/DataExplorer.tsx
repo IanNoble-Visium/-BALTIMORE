@@ -160,15 +160,15 @@ export default function DataExplorer() {
   const filteredAlerts = useMemo(() => {
     const alerts = alertsQuery.data ?? [];
     const now = new Date();
-    
+
     return alerts
       .filter(a => {
         // Severity filter
         if (alertSeverity !== "ALL" && a.severity !== alertSeverity) return false;
-        
+
         // Status filter
         if (alertStatus !== "ALL" && a.status !== alertStatus) return false;
-        
+
         // Date range filter
         if (alertDateRange !== "ALL" && a.timestamp) {
           const alertDate = new Date(a.timestamp);
@@ -176,7 +176,7 @@ export default function DataExplorer() {
           if (alertDateRange === "24H" && hoursDiff > 24) return false;
           if (alertDateRange === "7D" && hoursDiff > 24 * 7) return false;
         }
-        
+
         // Search filter
         if (alertSearch.trim()) {
           const term = alertSearch.toLowerCase();
@@ -194,6 +194,116 @@ export default function DataExplorer() {
         return timeB - timeA;
       });
   }, [alertsQuery.data, alertSeverity, alertStatus, alertSearch, alertDateRange]);
+
+  const deviceColumns: DataTableColumn<Device>[] = useMemo(
+    () => [
+      {
+        id: "deviceId",
+        header: "Device ID",
+        accessor: d => (
+          <span className="font-mono text-xs">{d.deviceId}</span>
+        ),
+        sortValue: d => d.deviceId.toLowerCase(),
+      },
+      {
+        id: "name",
+        header: "Name",
+        accessor: d => d.nodeName || "-",
+        sortValue: d => (d.nodeName ?? "").toLowerCase(),
+      },
+      {
+        id: "status",
+        header: "Status",
+        accessor: d => d.nodeStatus || "Unknown",
+        sortValue: d => (d.nodeStatus ?? "").toUpperCase(),
+      },
+      {
+        id: "network",
+        header: "Network",
+        accessor: d => d.networkType || "N/A",
+        sortValue: d => (d.networkType ?? "").toUpperCase(),
+      },
+      {
+        id: "alert",
+        header: "Alert",
+        accessor: d => d.alertType || "None",
+        sortValue: d => (d.alertType ?? "").toLowerCase(),
+      },
+      {
+        id: "burnHours",
+        header: "Burn Hours",
+        accessor: d => d.burnHours || "-",
+        sortValue: d => {
+          if (!d.burnHours) return 0;
+          const n = Number(d.burnHours);
+          return Number.isNaN(n) ? 0 : n;
+        },
+        align: "right",
+      },
+      {
+        id: "location",
+        header: "Location",
+        accessor: d =>
+          d.latitude && d.longitude
+            ? `${d.latitude}, ${d.longitude}`
+            : "Unknown",
+      },
+    ],
+    [],
+  );
+
+  const alertColumns: DataTableColumn<Alert>[] = useMemo(
+    () => [
+      {
+        id: "timestamp",
+        header: "Time",
+        accessor: a =>
+          a.timestamp ? new Date(a.timestamp).toLocaleString() : "-",
+        sortValue: a => (a.timestamp ? new Date(a.timestamp) : null),
+      },
+      {
+        id: "deviceId",
+        header: "Device ID",
+        accessor: a => (
+          <span className="font-mono text-xs">{a.deviceId}</span>
+        ),
+        sortValue: a => a.deviceId.toLowerCase(),
+      },
+      {
+        id: "alertType",
+        header: "Type",
+        accessor: a => a.alertType,
+        sortValue: a => a.alertType.toLowerCase(),
+      },
+      {
+        id: "severity",
+        header: "Severity",
+        accessor: a => (
+          <span className="text-xs capitalize">{a.severity}</span>
+        ),
+        sortValue: a => a.severity.toLowerCase(),
+      },
+      {
+        id: "status",
+        header: "Status",
+        accessor: a => (
+          <span className="text-xs capitalize">{a.status}</span>
+        ),
+        sortValue: a => a.status.toLowerCase(),
+      },
+      {
+        id: "description",
+        header: "Description",
+        accessor: a => (
+          <span className="text-[11px] text-muted-foreground">
+            {a.description || "-"}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
+
 
 
   // File upload preview state
@@ -221,7 +331,7 @@ export default function DataExplorer() {
       // Invalidate queries to refresh data
       devicesQuery.refetch();
       alertsQuery.refetch();
-      
+
       // Show success toast
       sonnerToast.success("Import completed", {
         description: `${data.devicesInserted} devices and ${data.alertsInserted} alerts imported successfully`,
@@ -241,10 +351,10 @@ export default function DataExplorer() {
     const values: string[] = [];
     let current = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
-      
+
       if (char === '"') {
         if (inQuotes && line[i + 1] === '"') {
           // Escaped quote
@@ -262,7 +372,7 @@ export default function DataExplorer() {
         current += char;
       }
     }
-    
+
     // Add last field
     values.push(current.trim());
     return values;
@@ -277,7 +387,7 @@ export default function DataExplorer() {
       try {
         const text = String(e.target?.result ?? "");
         const lines = text.split(/\r?\n/);
-        
+
         // Find header line (first non-empty line)
         let headerLineIndex = -1;
         let headerLine = '';
@@ -288,19 +398,19 @@ export default function DataExplorer() {
             break;
           }
         }
-        
+
         if (!headerLine) {
           setUploadError("File does not contain a header row.");
           return;
         }
-        
+
         const headers = parseCSVLine(headerLine).map(h => h.trim().replace(/^"|"$/g, ''));
         const bodyLines = lines.slice(headerLineIndex + 1);
-        
+
         const rows: Record<string, string>[] = [];
         for (const line of bodyLines) {
           if (line.trim().length === 0) continue; // Skip empty lines
-          
+
           try {
             const cells = parseCSVLine(line);
             const row: Record<string, string> = {};
@@ -318,7 +428,7 @@ export default function DataExplorer() {
             // Continue with other rows
           }
         }
-        
+
         if (rows.length === 0) {
           setUploadError("No valid data rows found in file.");
           return;
@@ -397,7 +507,7 @@ export default function DataExplorer() {
                 <p className="text-xs text-muted-foreground">
                   {devicesQuery.isLoading
                     ? "Loading devices from Baltimore…"
-                    : `${filteredDevices.length.toLocaleString()} devices (page ${devicePage} of ${devicePageCount})`}
+                    : `${filteredDevices.length.toLocaleString()} devices matching current filters`}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 items-center">
@@ -406,7 +516,6 @@ export default function DataExplorer() {
                   <Input
                     value={deviceSearch}
                     onChange={e => {
-                      setDevicePage(1);
                       setDeviceSearch(e.target.value);
                     }}
                     placeholder="Search by ID, name, or alert type"
@@ -416,7 +525,6 @@ export default function DataExplorer() {
                 <Select
                   value={deviceStatus}
                   onValueChange={val => {
-                    setDevicePage(1);
                     setDeviceStatus(val);
                   }}
                 >
@@ -434,7 +542,6 @@ export default function DataExplorer() {
                 <Select
                   value={deviceNetwork}
                   onValueChange={val => {
-                    setDevicePage(1);
                     setDeviceNetwork(val);
                   }}
                 >
@@ -452,18 +559,24 @@ export default function DataExplorer() {
                   size="sm"
                   variant="outline"
                   className="h-9 text-xs"
-                  onClick={() =>
-                    downloadCsv("baltimore_devices.csv", filteredDevices.map(d => ({
-                      deviceId: d.deviceId,
-                      name: d.nodeName ?? "",
-                      status: d.nodeStatus ?? "",
-                      networkType: d.networkType ?? "",
-                      alertType: d.alertType ?? "",
-                      burnHours: d.burnHours ?? "",
-                      latitude: d.latitude ?? "",
-                      longitude: d.longitude ?? "",
-                    })))
-                  }
+                  onClick={() => {
+                    const exportDevices = sortedDevices.length
+                      ? sortedDevices
+                      : filteredDevices;
+                    downloadCsv(
+                      "baltimore_devices.csv",
+                      exportDevices.map(d => ({
+                        deviceId: d.deviceId,
+                        name: d.nodeName ?? "",
+                        status: d.nodeStatus ?? "",
+                        networkType: d.networkType ?? "",
+                        alertType: d.alertType ?? "",
+                        burnHours: d.burnHours ?? "",
+                        latitude: d.latitude ?? "",
+                        longitude: d.longitude ?? "",
+                      })),
+                    );
+                  }}
                   disabled={!filteredDevices.length}
                 >
                   <Download className="h-3.5 w-3.5 mr-1" />
@@ -472,89 +585,21 @@ export default function DataExplorer() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <ScrollArea className="max-h-[480px] rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[130px]">Device ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Network</TableHead>
-                      <TableHead>Alert</TableHead>
-                      <TableHead>Burn Hours</TableHead>
-                      <TableHead>Location</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {devicesQuery.isLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-xs text-muted-foreground">
-                          Loading…
-                        </TableCell>
-                      </TableRow>
-                    ) : !devicePageItems.length ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-xs text-muted-foreground">
-                          No devices match the current filters.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      devicePageItems.map(device => (
-                        <TableRow key={device.deviceId}>
-                          <TableCell className="font-mono text-xs">
-                            {device.deviceId}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {device.nodeName || "–"}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {device.nodeStatus || "Unknown"}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {device.networkType || "N/A"}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {device.alertType || "None"}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {device.burnHours || "–"}
-                          </TableCell>
-                          <TableCell className="text-[11px] text-muted-foreground">
-                            {device.latitude && device.longitude
-                              ? `${device.latitude}, ${device.longitude}`
-                              : "Unknown"}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-              <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-                <span>
-                  Page {devicePage} of {devicePageCount}
-                </span>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={devicePage <= 1}
-                    onClick={() => setDevicePage(p => Math.max(1, p - 1))}
-                    className="h-7 px-2"
-                  >
-                    Prev
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={devicePage >= devicePageCount}
-                    onClick={() => setDevicePage(p => Math.min(devicePageCount, p + 1))}
-                    className="h-7 px-2"
-                  >
-                    Next
-                  </Button>
+              {devicesQuery.isLoading ? (
+                <div className="py-6 text-center text-xs text-muted-foreground">
+                  Loading…
                 </div>
-              </div>
+              ) : (
+                <SortableDataTable
+                  data={filteredDevices}
+                  columns={deviceColumns}
+                  getRowId={device => device.deviceId}
+                  initialPageSize={25}
+                  pageSizeOptions={[25, 50, 100]}
+                  emptyMessage="No devices match the current filters."
+                  onSortedDataChange={rows => setSortedDevices(rows)}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -593,7 +638,7 @@ export default function DataExplorer() {
                   </div>
                 )}
               </div>
-              
+
               {/* Saved Filters */}
               <div className="flex flex-wrap gap-2 items-center pt-2 border-t">
                 <span className="text-xs text-muted-foreground mr-1">Quick Filters:</span>
@@ -652,7 +697,7 @@ export default function DataExplorer() {
                   Clear
                 </Button>
               </div>
-              
+
               <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -916,28 +961,28 @@ export default function DataExplorer() {
                       className="w-full"
                       onClick={() => {
                         const rowsToImport = uploadRowsFull.length > 0 ? uploadRowsFull : uploadRows;
-                        
+
                         if (rowsToImport.length === 0) {
                           sonnerToast.error("No data to import");
                           return;
                         }
-                        
+
                         // Validate rows before sending
                         const validRows = rowsToImport.filter(row => {
                           if (!row || typeof row !== 'object') return false;
                           // Ensure row has at least one property
                           return Object.keys(row).length > 0;
                         });
-                        
+
                         if (validRows.length === 0) {
                           sonnerToast.error("No valid rows to import");
                           return;
                         }
-                        
+
                         if (validRows.length !== rowsToImport.length) {
                           sonnerToast.warning(`Filtered ${rowsToImport.length - validRows.length} invalid rows`);
                         }
-                        
+
                         setIsImporting(true);
                         setImportResult(null);
                         setUploadError(null);

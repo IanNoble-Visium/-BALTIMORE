@@ -22,6 +22,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useMemo, useState } from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { trpc } from "@/lib/trpc";
 import { motion } from "framer-motion";
 import {
   Dialog,
@@ -39,7 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TrendingUp, AlertTriangle, Activity, Zap, Network } from "lucide-react";
+import { TrendingUp, AlertTriangle, Activity, Zap, Network, Volume2 } from "lucide-react";
 
 // Baltimore color scheme
 const BALTIMORE_COLORS = {
@@ -94,6 +96,9 @@ export default function Analytics() {
       refetchInterval: 30000,
       refetchIntervalInBackground: true,
     });
+
+  const speakText = trpc.ai.speakText.useMutation();
+  const [analyticsAudioUrl, setAnalyticsAudioUrl] = useState<string | null>(null);
 
   // Drill-down state
   const [drillDownData, setDrillDownData] = useState<{
@@ -341,6 +346,44 @@ export default function Analytics() {
   const isLoading =
     alertsLoading || devicesLoading || alertStatsLoading || deviceStatsLoading;
 
+  const playAudioUrl = (url: string | null) => {
+    if (!url) return;
+    const audio = new Audio(url);
+    audio.play().catch(err => {
+      console.warn("[Analytics] Failed to play analytics summary audio", err);
+    });
+  };
+
+  const handlePlayAnalyticsSummary = async () => {
+    if (!alerts || !devices || !alertStats || !deviceStats) return;
+
+    if (analyticsAudioUrl) {
+      playAudioUrl(analyticsAudioUrl);
+      return;
+    }
+
+    const totalAlerts = alerts.length;
+    const totalDevices = devices.length;
+    const mostCommonStatus = deviceStatusData[0]?.status ?? "Unknown";
+    const mostCommonSeverity = alertStats.bySeverity?.[0]?.severity ?? null;
+
+    const tone = "Calm, executive analytics summary:";
+    const text = `Baltimore analytics summary. There are ${totalDevices} devices with most in ${mostCommonStatus} status, ` +
+      `and ${totalAlerts} historical alerts in the current view. ` +
+      (mostCommonSeverity
+        ? `Most alerts are ${mostCommonSeverity} severity.`
+        : "Severity distribution is balanced across levels.");
+
+    try {
+      const result = await speakText.mutateAsync({ text, tone });
+      const url = `data:audio/mp3;base64,${result.audioBase64}`;
+      setAnalyticsAudioUrl(url);
+      playAudioUrl(url);
+    } catch (err) {
+      console.warn("[Analytics] speakText analytics summary failed", err);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -354,13 +397,30 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold text-primary">Analytics Visualizations</h1>
           <p className="text-muted-foreground mt-1">
             Interactive charts with drill-down capabilities
           </p>
         </div>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                disabled={speakText.isPending || !alerts || !devices || !alertStats || !deviceStats}
+                onClick={handlePlayAnalyticsSummary}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 text-primary bg-background hover:bg-primary/10 disabled:opacity-50"
+              >
+                <Volume2 className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" align="center">
+              <span className="text-xs">Play analytics summary</span>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

@@ -15,6 +15,7 @@ import {
   Database,
   Brain,
   BarChart3,
+  Volume2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { MapboxMap } from "@/components/Map";
@@ -58,6 +59,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * Main Dashboard for Baltimore Smart City
@@ -156,6 +158,122 @@ export default function Dashboard() {
     const newMessages: Message[] = [...chatMessages, { role: "user", content }];
     setChatMessages(newMessages);
     chatMutation.mutate({ messages: newMessages });
+  };
+
+  const speakText = trpc.ai.speakText.useMutation();
+  const [chatSpeechCache, setChatSpeechCache] = useState<{
+    lastAssistantText: string | null;
+    audioUrl: string | null;
+  }>({ lastAssistantText: null, audioUrl: null });
+  const [kpiBriefingAudioUrl, setKpiBriefingAudioUrl] = useState<string | null>(null);
+  const [alertBriefingAudioUrl, setAlertBriefingAudioUrl] = useState<string | null>(null);
+
+  const playAudioUrl = (url: string | null, logLabel: string) => {
+    if (!url) return;
+    const audio = new Audio(url);
+    audio.play().catch(err => {
+      console.warn(`[Dashboard] Failed to play ${logLabel} audio`, err);
+    });
+  };
+
+  const getMaxSeverityFromStats = () => {
+    if (!alertStats?.bySeverity || alertStats.bySeverity.length === 0) return null;
+    const order: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+    return alertStats.bySeverity
+      .slice()
+      .sort((a, b) => (order[b.severity] || 0) - (order[a.severity] || 0))[0]?.severity;
+  };
+
+  const toneForSeverity = (severity: string | null | undefined) => {
+    if (!severity) return "Calm, executive status summary:";
+    const s = severity.toLowerCase();
+    if (s === "critical" || s === "high") {
+      return "Urgent, high-priority operations alert:";
+    }
+    if (s === "medium") {
+      return "Clear, time-sensitive operations update:";
+    }
+    return "Calm, informational status update:";
+  };
+
+  const handlePlayKpiBriefing = async () => {
+    if (!deviceStats || !alertStats || !kpis) return;
+
+    if (kpiBriefingAudioUrl) {
+      playAudioUrl(kpiBriefingAudioUrl, "KPI briefing (cached)");
+      return;
+    }
+
+    const onlinePct = deviceStats.total
+      ? Math.round((deviceStats.online / deviceStats.total) * 100)
+      : 0;
+    const severity = getMaxSeverityFromStats();
+    const tone = toneForSeverity(severity);
+
+    const text = `Baltimore status update. There are ${deviceStats.total} devices, with ${deviceStats.online} online, ` +
+      `${deviceStats.offline} offline, and ${alertStats.active} active alerts. ` +
+      `Overall health score is ${kpis.deviceHealthScore ?? 0} percent.`;
+
+    try {
+      const result = await speakText.mutateAsync({ text, tone });
+      const url = `data:audio/mp3;base64,${result.audioBase64}`;
+      setKpiBriefingAudioUrl(url);
+      playAudioUrl(url, "KPI briefing");
+    } catch (err) {
+      console.warn("[Dashboard] speakText KPI briefing failed", err);
+    }
+  };
+
+  const handlePlayAlertBriefing = async () => {
+    if (!activeAlerts || activeAlerts.length === 0) return;
+
+    if (alertBriefingAudioUrl) {
+      playAudioUrl(alertBriefingAudioUrl, "alert briefing (cached)");
+      return;
+    }
+
+    const order: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+    const mostSevere = activeAlerts
+      .slice()
+      .sort((a, b) => (order[b.severity] || 0) - (order[a.severity] || 0))[0];
+
+    const tone = toneForSeverity(mostSevere?.severity);
+    const text = mostSevere
+      ? `${mostSevere.severity} alert. ${mostSevere.alertType} at device ${mostSevere.deviceId}, ` +
+        `reported at ${new Date(mostSevere.timestamp).toLocaleString()}.`
+      : "There are no active alerts.";
+
+    try {
+      const result = await speakText.mutateAsync({ text, tone });
+      const url = `data:audio/mp3;base64,${result.audioBase64}`;
+      setAlertBriefingAudioUrl(url);
+      playAudioUrl(url, "alert briefing");
+    } catch (err) {
+      console.warn("[Dashboard] speakText alert briefing failed", err);
+    }
+  };
+
+  const handlePlayLastAssistantMessage = async () => {
+    const lastAssistant = [...chatMessages]
+      .reverse()
+      .find(m => m.role === "assistant");
+    if (!lastAssistant) return;
+
+    if (chatSpeechCache.lastAssistantText === lastAssistant.content && chatSpeechCache.audioUrl) {
+      playAudioUrl(chatSpeechCache.audioUrl, "AI assistant (cached)");
+      return;
+    }
+
+    const tone = "Calm, helpful explanation for city operations staff:";
+
+    try {
+      const result = await speakText.mutateAsync({ text: lastAssistant.content, tone });
+      const url = `data:audio/mp3;base64,${result.audioBase64}`;
+      setChatSpeechCache({ lastAssistantText: lastAssistant.content, audioUrl: url });
+      playAudioUrl(url, "AI assistant");
+    } catch (err) {
+      console.warn("[Dashboard] speakText last assistant message failed", err);
+    }
   };
 
   // Derived analytics data for charts
@@ -397,6 +515,31 @@ export default function Dashboard() {
         )}
 
         {/* KPI Cards */}
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+          <div className="text-xs text-muted-foreground">
+            System KPIs for Baltimore. Use the speaker icon for a narrated status update.
+          </div>
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 rounded-full border-primary/60 text-primary"
+                  disabled={speakText.isPending || !deviceStats || !alertStats || !kpis}
+                  onClick={handlePlayKpiBriefing}
+                >
+                  <Volume2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" align="center">
+                <span className="text-xs">Play status briefing</span>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Devices */}
           <Card className="glass-gold">
@@ -693,10 +836,31 @@ export default function Dashboard() {
           {/* Recent Alerts */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-chart-3" />
-                Recent Alerts
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-chart-3" />
+                  Recent Alerts
+                </CardTitle>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full border-chart-3/60 text-chart-3"
+                        disabled={speakText.isPending || !activeAlerts || activeAlerts.length === 0}
+                        onClick={handlePlayAlertBriefing}
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" align="center">
+                      <span className="text-xs">Play most severe alert</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -811,10 +975,31 @@ export default function Dashboard() {
           {/* AI Assistant */}
           <Card className="xl:row-span-2">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-primary" />
-                AI Command Assistant
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-primary" />
+                  AI Command Assistant
+                </CardTitle>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full border-primary/60 text-primary"
+                        disabled={speakText.isPending || !chatMessages.some(m => m.role === "assistant")}
+                        onClick={handlePlayLastAssistantMessage}
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" align="center">
+                      <span className="text-xs">Play last AI answer</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </CardHeader>
             <CardContent className="pt-2">
               <AIChatBox
