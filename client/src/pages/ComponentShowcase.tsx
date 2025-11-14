@@ -172,6 +172,7 @@ import {
 import { useState } from "react";
 import { toast as sonnerToast } from "sonner";
 import { AIChatBox, type Message } from "@/components/AIChatBox";
+import { trpc } from "@/lib/trpc";
 
 export default function ComponentsShowcase() {
   const { theme, toggleTheme } = useTheme();
@@ -191,7 +192,24 @@ export default function ComponentsShowcase() {
   const [chatMessages, setChatMessages] = useState<Message[]>([
     { role: "system", content: "You are a helpful assistant." },
   ]);
-  const [isChatLoading, setIsChatLoading] = useState(false);
+
+  const chatMutation = trpc.ai.chat.useMutation({
+    onSuccess: (response) => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: response.content,
+        },
+      ]);
+    },
+    onError: (error) => {
+      console.error("[AI Chat] Error:", error);
+      sonnerToast.error("AI assistant error", {
+        description: error.message ?? "Something went wrong. Please try again.",
+      });
+    },
+  });
 
   const handleDialogSubmit = () => {
     console.log("Dialog submitted with value:", dialogInput);
@@ -210,20 +228,15 @@ export default function ComponentsShowcase() {
   };
 
   const handleChatSend = (content: string) => {
+    if (chatMutation.isPending) return;
+
     // Add user message
     const newMessages: Message[] = [...chatMessages, { role: "user", content }];
     setChatMessages(newMessages);
 
-    // Simulate AI response with delay
-    setIsChatLoading(true);
-    setTimeout(() => {
-      const aiResponse: Message = {
-        role: "assistant",
-        content: `This is a **demo response**. In a real app, you would call a tRPC mutation here:\n\n\`\`\`typescript\nconst chatMutation = trpc.ai.chat.useMutation({\n  onSuccess: (response) => {\n    setChatMessages(prev => [...prev, {\n      role: "assistant",\n      content: response.choices[0].message.content\n    }]);\n  }\n});\n\nchatMutation.mutate({ messages: newMessages });\n\`\`\`\n\nYour message was: "${content}"`,
-      };
-      setChatMessages([...newMessages, aiResponse]);
-      setIsChatLoading(false);
-    }, 1500);
+    chatMutation.mutate({
+      messages: newMessages,
+    });
   };
 
   return (
@@ -1409,7 +1422,7 @@ export default function ComponentsShowcase() {
                   <AIChatBox
                     messages={chatMessages}
                     onSendMessage={handleChatSend}
-                    isLoading={isChatLoading}
+                    isLoading={chatMutation.isPending}
                     placeholder="Try sending a message..."
                     height="500px"
                     emptyStateMessage="How can I help you today?"
