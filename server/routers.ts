@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { invokeLLM } from "./_core/llm";
 import { z } from "zod";
 import {
   getAllDevices,
@@ -105,6 +106,45 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().optional().default(24) }))
       .query(async ({ input }) => {
         return await getKPIHistory(input.limit);
+      }),
+  }),
+
+  // AI assistant
+  ai: router({
+    chat: publicProcedure
+      .input(
+        z.object({
+          messages: z.array(
+            z.object({
+              role: z.enum(["system", "user", "assistant"]),
+              content: z.string(),
+            })
+          ),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const result = await invokeLLM({
+          messages: input.messages,
+        });
+
+        const choice = result.choices[0];
+        let content = "";
+
+        if (typeof choice.message.content === "string") {
+          content = choice.message.content;
+        } else if (Array.isArray(choice.message.content)) {
+          content = choice.message.content
+            .map(part => {
+              if (typeof part === "string") return part;
+              if ("type" in part && (part as any).type === "text") {
+                return (part as any).text ?? "";
+              }
+              return "";
+            })
+            .join("\n");
+        }
+
+        return { content, raw: result } as const;
       }),
   }),
 
