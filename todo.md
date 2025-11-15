@@ -1,5 +1,33 @@
 # Baltimore Smart City Dashboard - TODO
 
+## Roadmap Phases
+
+### Phase 1 – Core polish & UX
+- [ ] Add breadcrumb navigation to main dashboard
+- [ ] Add animated counter effects to KPI cards
+- [ ] Implement interactive column sorting for data tables
+- [ ] Add color-coded severity indicators in tables
+
+### Phase 2 – Advanced analytics & real-time
+- [ ] Implement real-time data updates (WebSocket or SSE)
+- [ ] Implement global search across devices & alerts
+- [ ] Extend drill-down modals to additional dashboard charts
+- [ ] Prototype 3D city flyover using Mapbox 3D or React Three Fiber
+
+### Phase 3 – AI & predictive operations
+- [ ] Implement AI alert pattern detection & summarization flows
+- [ ] Add predictive maintenance scoring based on Ubicell telemetry
+- [ ] Add predictive maintenance suggestions UX
+
+### Phase 4 – Production hardening
+- [ ] Set up protected routes for dashboard (if needed beyond demo)
+- [ ] Implement role-based access control (optional / future phase)
+- [ ] Test all dashboard features end-to-end
+- [ ] Performance optimization & code splitting by route
+- [ ] Create user, API, and deployment documentation
+
+---
+
 ## Database & Backend
 - [x] Design database schema for devices, alerts, and KPIs
 - [x] Create migration scripts for database tables
@@ -9,12 +37,12 @@
 - [x] Set up tRPC procedures for devices data
 - [x] Set up tRPC procedures for alerts data
 - [x] Set up tRPC procedures for KPIs data
-- [ ] Implement real-time data updates (WebSocket)
+- [ ] Implement real-time data updates (WebSocket/SSE)
 
 ## Authentication
 - [x] Configure admin user with credentials (admin@visium.com / Baltimore2025)
-- [ ] Set up protected routes for dashboard
-- [ ] Implement role-based access control
+- [ ] Set up protected routes for dashboard (can remain relaxed for demo)
+- [ ] Implement role-based access control (optional / future phase)
 
 ## UI Foundation & Theme
 - [x] Configure Baltimore color scheme (Black #000000, Gold #FFC72C)
@@ -27,7 +55,7 @@
 - [x] Create landing page layout with Baltimore branding
 - [x] Add video background support for b-roll
 - [x] Implement pre-filled login form
-- [x] Add smooth transitions and parallax effects
+- [x] Add smooth transitions and parallax/transition effects
 - [x] Create "Enter Dashboard" CTA with golden glow effect
 - [x] Add Baltimore flag imagery and Battle Monument
 
@@ -56,62 +84,65 @@
 - [x] Add device details modal
 
 ## Network Relationship Graph
-- [ ] Create force-directed graph with D3.js
-- [ ] Implement node types (Control Stations, Devices, Sensors)
-- [ ] Implement edge types (Primary Link, Backup Link, Data Flow)
-- [ ] Add interactive features (drag nodes, zoom, filter)
-- [ ] Create legend with color coding
-- [ ] Add node click modal with details
+- [x] Create force-directed graph with D3.js
+- [x] Implement node types (Control Stations, Devices, Sensors)
+- [x] Implement edge types (Primary Link, Backup Link, Data Flow)
+- [x] Add interactive features (drag nodes, zoom, filter)
+- [x] Create legend with color coding
+- [x] Add node click modal with details
 
 ## Analytics Visualizations
-- [ ] Create Alert Timeline (line chart)
-- [ ] Create Alert Type Distribution (donut chart)
-- [ ] Create Device Status chart (bar chart)
-- [ ] Create Burn Hours Distribution (histogram)
-- [ ] Create Network Type Performance chart (grouped bar)
-- [ ] Implement chart animations
-- [ ] Add drill-down functionality for charts
+- [x] Create Alert Timeline (line chart)
+- [x] Create Alert Type Distribution (donut chart)
+- [x] Create Device Status chart (bar chart)
+- [x] Create Burn Hours Distribution (histogram)
+- [x] Create Network Type Performance chart (grouped bar)
+- [x] Implement chart animations
+- [x] Add drill-down functionality for charts
 
 ## Ubicell UGU Section
 - [x] Create Ubicell section layout
-- [x] Add device diagrams (3D renderings)
+- [x] Add device diagrams (3D-style conceptual renderings)
 - [ ] Add installation guide visuals
 - [x] Display data collection capabilities
 - [x] Explain 32+ data points
 - [x] Show connection to UbiVu cloud
 
 ## Wow Factor Roadmap (Tier 2 & 3 Enhancements)
-- [ ] Implement map heatmap overlay for incident density
-- [ ] Add marker clustering and cluster drill-down
+- [x] Implement map heatmap overlay for incident density
+- [x] Add marker clustering and cluster drill-down
 - [ ] Add animated counter effects to KPI cards
-- [ ] Implement sortable, filterable data tables for devices and alerts
-- [ ] Add CSV export and print-friendly report views
+- [x] Implement sortable, filterable data tables for devices and alerts
+- [x] Add CSV export for devices and alerts tables
+- [ ] Add print-friendly report views
 - [ ] Prototype 3D city flyover using Mapbox 3D or React Three Fiber
 - [ ] Implement AI alert pattern detection & summarization flows
 - [ ] Add predictive maintenance scoring based on Ubicell telemetry
 
 ## Data Tables
-- [ ] Create sortable data table component
-- [ ] Implement column sorting
-- [ ] Add date range filtering
-- [ ] Add alert type filtering
-- [ ] Add severity filtering
-- [ ] Implement pagination (50/100/500 rows)
-- [ ] Add CSV export functionality
+- [x] Create sortable data table component
+- [ ] Implement interactive column sorting (per-column sort toggles)
+- [x] Add date range filtering
+- [x] Add alert type filtering
+- [x] Add severity filtering
+- [ ] Implement configurable pagination (50/100/500 rows)
+- [x] Add CSV export functionality
 - [ ] Add color-coded severity indicators
 
 ## File Upload Feature
-- [ ] Create drag & drop upload component
-- [ ] Implement CSV/JSON file parsing
-- [ ] Add auto-detect schema functionality
-- [ ] Implement immediate visualization
-- [ ] Store uploaded data in PostgreSQL
-- [ ] Support Ubicquia format
+- [x] Create drag & drop upload component
+- [x] Implement CSV file parsing
+- [ ] Add JSON file parsing (optional)
+- [x] Add auto-detect schema functionality
+- [x] Implement immediate visualization
+- [x] Store uploaded data in PostgreSQL
+- [x] Support Ubicquia-format CSVs via flexible importer
 
 ## Advanced Features
-- [ ] Implement global search across all devices
+- [ ] Implement global search across all devices (beyond per-page search)
 - [ ] Add 3D flyovers with React Three Fiber
-- [ ] Create drill-down modals for all chart elements
+- [x] Create drill-down modals for analytics chart elements
+- [ ] Extend drill-down modals to remaining dashboard charts
 - [ ] Implement AI alert pattern detection
 - [ ] Add predictive maintenance suggestions
 

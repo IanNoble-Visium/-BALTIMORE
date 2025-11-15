@@ -119,6 +119,62 @@ export default function DataTables() {
     };
   }, [filteredAlerts]);
 
+  const trendSummary = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = subDays(now, 7);
+
+    const baselineCount = alerts.filter(a => {
+      if (!a.timestamp) return false;
+      const alertDate = new Date(a.timestamp);
+      if (alertDate < sevenDaysAgo || alertDate > now) return false;
+
+      if (severity !== "ALL" && a.severity !== severity) return false;
+      if (type !== "ALL" && a.alertType !== type) return false;
+
+      return true;
+    }).length;
+
+    const currentCount = filteredAlerts.length;
+    const diff = currentCount - baselineCount;
+
+    let percent = 0;
+    if (baselineCount === 0) {
+      percent = currentCount > 0 ? 100 : 0;
+    } else {
+      percent = Math.round((diff / baselineCount) * 100);
+    }
+
+    return {
+      current: currentCount,
+      baseline: baselineCount,
+      diff,
+      percent,
+    };
+  }, [alerts, severity, type, filteredAlerts]);
+
+  const showTrend = trendSummary.baseline > 0 || trendSummary.current > 0;
+  const isNeutral =
+    Math.abs(trendSummary.percent) <= 2 || trendSummary.diff === 0;
+  const isPositive = trendSummary.diff < 0 && !isNeutral;
+  const isNegative = trendSummary.diff > 0 && !isNeutral;
+
+  const trendText = (() => {
+    if (!showTrend) {
+      return "No recent alerts to compare vs. last 7 days.";
+    }
+
+    if (isNeutral) {
+      return "Stable vs. last 7 days";
+    }
+
+    const arrow = trendSummary.diff > 0 ? "↑" : "↓";
+    const sign = trendSummary.diff > 0 ? "+" : "";
+    const diffAbs = Math.abs(trendSummary.diff);
+    const alertsWord = diffAbs === 1 ? "alert" : "alerts";
+
+    return `${arrow} ${diffAbs.toLocaleString()} ${alertsWord} (${sign}${trendSummary.percent}%) vs. last 7 days`;
+  })();
+
   const columns: DataTableColumn<Alert>[] = useMemo(
     () => [
       {
@@ -191,6 +247,18 @@ export default function DataTables() {
                   ? "Fetching latest alerts…"
                   : `${filteredAlerts.length.toLocaleString()} alerts matching current filters`}
               </p>
+              {!alertsQuery.isLoading && (
+                <p
+                  className={cn(
+                    "text-[11px]",
+                    isNeutral && "text-muted-foreground",
+                    isPositive && "text-emerald-400",
+                    isNegative && "text-red-400",
+                  )}
+                >
+                  {trendText}
+                </p>
+              )}
             </div>
           </div>
           <Button

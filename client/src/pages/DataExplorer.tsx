@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import type { Alert, Device } from "@shared/types";
 import { trpc } from "@/lib/trpc";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -73,6 +75,20 @@ function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+const severityColorClasses: Record<Alert["severity"], string> = {
+  critical: "border-red-500/60 bg-red-500/15 text-red-200",
+  high: "border-amber-500/60 bg-amber-500/15 text-amber-100",
+  medium: "border-sky-500/60 bg-sky-500/15 text-sky-100",
+  low: "border-emerald-500/60 bg-emerald-500/15 text-emerald-100",
+};
+
+const severityLevels: Alert["severity"][] = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+];
 
 export default function DataExplorer() {
   // Devices
@@ -194,6 +210,97 @@ export default function DataExplorer() {
         return timeB - timeA;
       });
   }, [alertsQuery.data, alertSeverity, alertStatus, alertSearch, alertDateRange]);
+
+	  const severitySummary = useMemo(() => {
+	    const counts: Record<Alert["severity"], number> = {
+	      critical: 0,
+	      high: 0,
+	      medium: 0,
+	      low: 0,
+	    };
+
+	    for (const alert of filteredAlerts) {
+	      counts[alert.severity] += 1;
+	    }
+
+	    return {
+	      total: filteredAlerts.length,
+	      counts,
+	    };
+	  }, [filteredAlerts]);
+
+	  const trendSummary = useMemo(() => {
+	    const alerts = alertsQuery.data ?? [];
+	    const now = new Date();
+	    const sevenDaysAgo = new Date(now);
+	    sevenDaysAgo.setDate(now.getDate() - 7);
+
+	    const baselineCount = alerts.filter(a => {
+	      if (!a.timestamp) return false;
+	      const alertDate = new Date(a.timestamp);
+	      if (alertDate < sevenDaysAgo || alertDate > now) return false;
+
+	      if (alertSeverity !== "ALL" && a.severity !== alertSeverity) return false;
+	      if (alertStatus !== "ALL" && a.status !== alertStatus) return false;
+
+	      if (alertSearch.trim()) {
+	        const term = alertSearch.toLowerCase();
+	        if (
+	          !(
+	            a.deviceId.toLowerCase().includes(term) ||
+	            a.alertType.toLowerCase().includes(term) ||
+	            (a.description ?? "").toLowerCase().includes(term)
+	          )
+	        ) {
+	          return false;
+	        }
+	      }
+
+	      return true;
+	    }).length;
+
+	    const currentCount = filteredAlerts.length;
+	    const diff = currentCount - baselineCount;
+
+	    let percent = 0;
+	    if (baselineCount === 0) {
+	      percent = currentCount > 0 ? 100 : 0;
+	    } else {
+	      percent = Math.round((diff / baselineCount) * 100);
+	    }
+
+	    return {
+	      current: currentCount,
+	      baseline: baselineCount,
+	      diff,
+	      percent,
+	    };
+	  }, [alertsQuery.data, alertSeverity, alertStatus, alertSearch, filteredAlerts]);
+
+	  const showTrend = trendSummary.baseline > 0 || trendSummary.current > 0;
+	  const isNeutral =
+	    Math.abs(trendSummary.percent) <= 2 || trendSummary.diff === 0;
+	  const isPositive = trendSummary.diff < 0 && !isNeutral;
+	  const isNegative = trendSummary.diff > 0 && !isNeutral;
+
+	  const trendText = (() => {
+	    if (!showTrend) {
+	      return "No recent alerts to compare vs. last 7 days.";
+	    }
+
+	    if (isNeutral) {
+	      return "Stable vs. last 7 days";
+	    }
+
+	    const arrow = trendSummary.diff > 0 ? "↑" : "↓";
+	    const sign = trendSummary.diff > 0 ? "+" : "";
+	    const diffAbs = Math.abs(trendSummary.diff);
+	    const alertsWord = diffAbs === 1 ? "alert" : "alerts";
+
+	    return `${arrow} ${diffAbs.toLocaleString()} ${alertsWord} (${sign}${trendSummary.percent}%) vs. last 7 days`;
+	  })();
+
+
 
   const deviceColumns: DataTableColumn<Device>[] = useMemo(
     () => [
@@ -611,11 +718,26 @@ export default function DataExplorer() {
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="space-y-1">
                   <CardTitle>Smart City Alerts</CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {alertsQuery.isLoading
-                      ? "Loading alerts…"
-                      : `${filteredAlerts.length.toLocaleString()} alerts matching current filters`}
-                  </p>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p>Search, filter, and export live Baltimore alert activity.</p>
+                    <p className="font-medium">
+                      {alertsQuery.isLoading
+                        ? "Loading alerts…"
+                        : `${filteredAlerts.length.toLocaleString()} alerts matching current filters`}
+                    </p>
+                    {!alertsQuery.isLoading && (
+                      <p
+                        className={cn(
+                          "text-[11px]",
+                          isNeutral && "text-muted-foreground",
+                          isPositive && "text-emerald-400",
+                          isNegative && "text-red-400",
+                        )}
+                      >
+                        {trendText}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 {/* Sparkline Chart */}
                 {sparklineData.length > 0 && (
@@ -638,6 +760,41 @@ export default function DataExplorer() {
                   </div>
                 )}
               </div>
+
+              {severitySummary.total > 0 && (
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground pt-2 border-t">
+                  <span className="mr-1 font-semibold uppercase tracking-wide text-[10px]">
+                    Severity distribution
+                  </span>
+                  {severityLevels.map(level => {
+                    const count = severitySummary.counts[level];
+                    const pct =
+                      severitySummary.total > 0
+                        ? Math.round((count / severitySummary.total) * 100)
+                        : 0;
+
+                    return (
+                      <Badge
+                        key={level}
+                        variant="secondary"
+                        className={cn(
+                          "flex items-center gap-1 border px-2 py-0.5",
+                          severityColorClasses[level],
+                        )}
+                      >
+                        <span className="capitalize">{level}</span>
+                        <span className="font-mono">
+                          {count.toLocaleString()}
+                        </span>
+                        <span className="text-[10px] opacity-80">
+                          ({pct}%)
+                        </span>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+
 
               {/* Saved Filters */}
               <div className="flex flex-wrap gap-2 items-center pt-2 border-t">
