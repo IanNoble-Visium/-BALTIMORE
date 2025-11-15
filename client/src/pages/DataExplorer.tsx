@@ -215,7 +215,7 @@ export default function DataExplorer() {
       });
   }, [alertsQuery.data, alertSeverity, alertStatus, alertSearch, alertDateRange]);
 
-	  const severitySummary = useMemo(() => {
+	  /* const severitySummary = useMemo(() => {
 	    const counts: Record<Alert["severity"], number> = {
 	      critical: 0,
 	      high: 0,
@@ -302,7 +302,42 @@ export default function DataExplorer() {
 	    const alertsWord = diffAbs === 1 ? "alert" : "alerts";
 
 	    return `${arrow} ${diffAbs.toLocaleString()} ${alertsWord} (${sign}${trendSummary.percent}%) vs. last 7 days`;
-	  })();
+	  })(); */
+
+
+  const baselineFilter = useCallback(
+    (alert: Alert) => {
+      if (alertSeverity !== "ALL" && alert.severity !== alertSeverity) {
+        return false;
+      }
+      if (alertStatus !== "ALL" && alert.status !== alertStatus) {
+        return false;
+      }
+
+      if (alertSearch.trim()) {
+        const term = alertSearch.toLowerCase();
+        if (
+          !(
+            alert.deviceId.toLowerCase().includes(term) ||
+            alert.alertType.toLowerCase().includes(term) ||
+            (alert.description ?? "").toLowerCase().includes(term)
+          )
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [alertSeverity, alertStatus, alertSearch],
+  );
+
+  const { severitySummary, isNeutral, isPositive, isNegative, trendText } =
+    useAlertInsights({
+      alerts: alertsQuery.data ?? [],
+      filteredAlerts,
+      baselineFilter,
+    });
 
 
 
