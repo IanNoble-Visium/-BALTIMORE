@@ -3,10 +3,10 @@
 ## Roadmap Phases
 
 ### Phase 1 – Core polish & UX
-- [ ] Add breadcrumb navigation to main dashboard
-- [ ] Add animated counter effects to KPI cards
-- [ ] Implement interactive column sorting for data tables
-- [ ] Add color-coded severity indicators in tables
+- [x] Add breadcrumb navigation to main dashboard
+- [x] Add animated counter effects to KPI cards
+- [x] Implement interactive column sorting for data tables
+- [x] Add color-coded severity indicators in tables
 
 ### Phase 2 – Advanced analytics & real-time
 - [ ] Implement real-time data updates (WebSocket or SSE)
@@ -62,7 +62,7 @@
 ## Main Dashboard Layout
 - [x] Create dashboard layout structure
 - [x] Implement navigation system
-- [ ] Add breadcrumb navigation
+- [x] Add breadcrumb navigation
 - [x] Create responsive grid system
 
 ## KPI Cards
@@ -72,7 +72,7 @@
 - [x] Implement Network Status Summary card
 - [x] Implement Active Alerts Count card
 - [x] Implement Device Health Score card
-- [ ] Add animated counter effects
+- [x] Add animated counter effects
 
 ## Interactive Map
 - [x] Set up Mapbox GL / Leaflet integration
@@ -111,7 +111,7 @@
 ## Wow Factor Roadmap (Tier 2 & 3 Enhancements)
 - [x] Implement map heatmap overlay for incident density
 - [x] Add marker clustering and cluster drill-down
-- [ ] Add animated counter effects to KPI cards
+- [x] Add animated counter effects to KPI cards
 - [x] Implement sortable, filterable data tables for devices and alerts
 - [x] Add CSV export for devices and alerts tables
 - [ ] Add print-friendly report views
@@ -121,13 +121,13 @@
 
 ## Data Tables
 - [x] Create sortable data table component
-- [ ] Implement interactive column sorting (per-column sort toggles)
+- [x] Implement interactive column sorting (per-column sort toggles)
 - [x] Add date range filtering
 - [x] Add alert type filtering
 - [x] Add severity filtering
 - [ ] Implement configurable pagination (50/100/500 rows)
 - [x] Add CSV export functionality
-- [ ] Add color-coded severity indicators
+- [x] Add color-coded severity indicators
 
 ## File Upload Feature
 - [x] Create drag & drop upload component

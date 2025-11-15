@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { Alert, Device } from "@shared/types";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,7 @@ import {
   X,
   CheckCircle2,
   Loader2,
+  Info,
 } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,6 +50,9 @@ import {
   SortableDataTable,
   type DataTableColumn,
 } from "@/components/SortableDataTable";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+import { useAlertInsights } from "@/hooks/useAlertInsights";
 
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return;
@@ -386,7 +390,12 @@ export default function DataExplorer() {
         id: "severity",
         header: "Severity",
         accessor: a => (
-          <span className="text-xs capitalize">{a.severity}</span>
+          <Badge
+            variant="secondary"
+            className={`capitalize border ${severityColorClasses[a.severity]}`}
+          >
+            {a.severity}
+          </Badge>
         ),
         sortValue: a => a.severity.toLowerCase(),
       },
@@ -737,6 +746,29 @@ export default function DataExplorer() {
                         {trendText}
                       </p>
                     )}
+                    {!alertsQuery.isLoading && (
+                      <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current/40 bg-background/70 text-[10px]"
+                              aria-label="How is this trend calculated?"
+                            >
+                              <Info className="h-3 w-3" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <span>
+                              Compares current filtered alerts with alerts from the last 7 days,
+                              ignoring the date range but using the same severity, status, and
+                              search filters.
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
+                        <span>Trend vs last 7 days</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 {/* Sparkline Chart */}
@@ -760,40 +792,6 @@ export default function DataExplorer() {
                   </div>
                 )}
               </div>
-
-              {severitySummary.total > 0 && (
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground pt-2 border-t">
-                  <span className="mr-1 font-semibold uppercase tracking-wide text-[10px]">
-                    Severity distribution
-                  </span>
-                  {severityLevels.map(level => {
-                    const count = severitySummary.counts[level];
-                    const pct =
-                      severitySummary.total > 0
-                        ? Math.round((count / severitySummary.total) * 100)
-                        : 0;
-
-                    return (
-                      <Badge
-                        key={level}
-                        variant="secondary"
-                        className={cn(
-                          "flex items-center gap-1 border px-2 py-0.5",
-                          severityColorClasses[level],
-                        )}
-                      >
-                        <span className="capitalize">{level}</span>
-                        <span className="font-mono">
-                          {count.toLocaleString()}
-                        </span>
-                        <span className="text-[10px] opacity-80">
-                          ({pct}%)
-                        </span>
-                      </Badge>
-                    );
-                  })}
-                </div>
-              )}
 
 
               {/* Saved Filters */}
@@ -942,6 +940,39 @@ export default function DataExplorer() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
+              {severitySummary.total > 0 && (
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <span className="mr-1 font-semibold uppercase tracking-wide text-[10px]">
+                    Severity distribution
+                  </span>
+                  {severityLevels.map(level => {
+                    const count = severitySummary.counts[level];
+                    const pct =
+                      severitySummary.total > 0
+                        ? Math.round((count / severitySummary.total) * 100)
+                        : 0;
+
+                    return (
+                      <Badge
+                        key={level}
+                        variant="secondary"
+                        className={cn(
+                          "flex items-center gap-1 border px-2 py-0.5",
+                          severityColorClasses[level],
+                        )}
+                      >
+                        <span className="capitalize">{level}</span>
+                        <span className="font-mono">
+                          {count.toLocaleString()}
+                        </span>
+                        <span className="text-[10px] opacity-80">
+                          ({pct}%)
+                        </span>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
               {alertsQuery.isLoading ? (
                 <div className="py-6 text-center text-xs text-muted-foreground">
                   Loading…
@@ -974,6 +1005,7 @@ export default function DataExplorer() {
               <p className="text-xs text-muted-foreground">
                 Drag a CSV file exported from Ubicquia, Baltimore Open Data, or another
                 source. The Data Explorer will infer columns and types, then show a
+
                 quick preview. (In a full deployment this would be wired to PostgreSQL
                 for persistent analytics.)
               </p>
@@ -1146,6 +1178,7 @@ export default function DataExplorer() {
                           ))}
                         </TableRow>
                       </TableHeader>
+
                       <TableBody>
                         {uploadRows.map((row, idx) => (
                           <TableRow key={idx}>

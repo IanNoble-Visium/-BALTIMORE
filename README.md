@@ -30,6 +30,23 @@ The Baltimore Smart City Command Center provides real-time monitoring, analytics
 - **Baltimore Data Highlights**: Recent events and data points
 - **Quick Stats**: Device and alert statistics at a glance
 
+### 🧠 AI Insights Page
+- **Alert Pattern Detection**: AI-powered analysis identifying recurring patterns, geographic clusters, temporal trends, and device-specific issues
+  - Configurable time ranges (24h, 7d, 30d)
+  - Pattern cards with severity badges and affected device counts
+  - Example alert types for each detected pattern
+- **Alert Summarization**: Executive-level summaries with actionable insights
+  - Overall summary of recent alerts
+  - Key points highlighting critical issues
+  - Actionable recommendations for operations teams
+- **Predictive Maintenance Scoring**: Maintenance priority scores based on Ubicell telemetry
+  - Multi-factor scoring algorithm (burn hours, alert frequency, device status, network reliability)
+  - Priority classification (Critical, High, Medium, Low)
+  - Device-specific maintenance recommendations
+  - AI-generated insights on maintenance trends
+  - Sortable device table with comprehensive telemetry data
+- **Voice Briefing**: Audio summary of AI insights for quick status updates
+
 ### 🗺️ Interactive Map
 - **Mapbox GL Integration**: High-performance 3D map rendering
 - **Device Markers**: Color-coded markers by status (Online, Offline, Warning, Power Loss)
@@ -211,22 +228,174 @@ This means the assistant always answers with **current Command Center context**,
 
 #### 2. AI Insights Page
 
-On the `/ai` route (`AI.tsx`):
+The **AI Insights** page (`/ai` route, `AI.tsx`) provides three powerful AI-powered features for proactive smart city management:
 
-- tRPC queries fetch AI-augmented data:
-  - `trpc.ai.detectAlertPatterns`
-  - `trpc.ai.summarizeAlerts`
-  - `trpc.ai.getPredictiveMaintenanceScores`
-- These endpoints (defined under `ai.*` in `server/routers.ts`) use the same `invokeLLM` helper to:
-  - Analyze alert history for patterns
-  - Generate executive summaries and recommendations
-  - Score devices for predictive maintenance priority
+##### Alert Pattern Detection & Summarization
 
-The AI Insights page displays:
+**Alert Pattern Detection** (`ai.detectAlertPatterns`):
 
-- Pattern summaries + detected patterns list
-- Alert executive summaries, key points, and recommendations
-- Maintenance scores and AI-generated maintenance insights
+- **Purpose**: Identifies recurring patterns, geographic clusters, temporal trends, and device-specific issues across the alert history
+- **Time Ranges**: Configurable analysis windows (24 hours, 7 days, 30 days)
+- **How It Works**:
+  1. Fetches all alerts and device data from PostgreSQL
+  2. Filters alerts by the selected time range
+  3. Enriches alerts with device metadata (node name, network type, location)
+  4. Sends enriched alert data to OpenAI LLM with a specialized prompt for pattern analysis
+  5. LLM returns structured JSON with:
+     - `patterns[]`: Array of detected patterns with type, description, severity, affected device count, and examples
+     - `summary`: Text summary of key findings
+  6. Falls back to basic statistical analysis if AI is unavailable (counts by type, device frequency)
+- **UI Display**: 
+  - Pattern cards showing severity badges, descriptions, and affected device counts
+  - Example alert types for each pattern
+  - Summary alert with overall findings
+
+**Alert Summarization** (`ai.summarizeAlerts`):
+
+- **Purpose**: Generates executive-level summaries of recent alerts with actionable insights
+- **Time Ranges**: Configurable (24 hours, 7 days, 30 days) with max alert limit (default 100)
+- **How It Works**:
+  1. Fetches recent alerts filtered by time range
+  2. Enriches with device information (node names, status)
+  3. Sends to OpenAI LLM with summarization prompt
+  4. LLM returns structured JSON with:
+     - `summary`: Overall executive summary
+     - `keyPoints[]`: 3-5 bullet points highlighting critical issues
+     - `recommendations[]`: 2-3 actionable recommendations
+  5. Falls back to statistical summary if AI unavailable
+- **UI Display**:
+  - Executive summary alert
+  - Key points list with checkmark icons
+  - Recommendation cards with actionable items
+
+##### Predictive Maintenance Scoring
+
+**Predictive Maintenance** (`ai.getPredictiveMaintenanceScores`):
+
+- **Purpose**: Calculates maintenance priority scores for all Ubicell devices based on telemetry data to enable proactive maintenance scheduling
+- **Telemetry Data Used**:
+  - **Burn Hours**: LED lamp operational hours (parsed from `devices.burnHours`)
+    - Risk calculation: `(burnHours / 50000) * 100` (typical LED lifespan: 50,000-100,000 hours)
+    - Weight: 30% of total score
+  - **Alert Frequency**: Count of alerts in last 30 days per device
+    - Risk calculation: `min(100, alertCount * 10)`
+    - Weight: 40% of total score (highest weight)
+  - **Device Status**: Current node status (Online/Offline/Warning)
+    - Offline = 80 risk, Warning = 50 risk, Online = 10 risk
+    - Weight: 20% of total score
+  - **Network Reliability**: Network type assessment
+    - Cellular/4G/5G = 15 risk, WiFi/Mesh = 25 risk, Default = 20 risk
+    - Weight: 10% of total score
+
+- **Scoring Algorithm**:
+  1. For each device, calculate weighted risk factors
+  2. Compute weighted average: `Σ(factor.score × factor.weight) / Σ(factor.weight)`
+  3. Assign priority levels:
+     - **Critical**: Score ≥ 75
+     - **High**: Score ≥ 50
+     - **Medium**: Score ≥ 25
+     - **Low**: Score < 25
+  4. Generate device-specific recommendations based on:
+     - High burn hours (>40,000) → "Consider lamp replacement soon"
+     - Frequent alerts (>5) → "Investigate root cause"
+     - Offline status → "Requires immediate attention"
+     - Normal operation → "Continue monitoring"
+  5. Sort devices by score (highest first)
+  6. Send top 20 devices to OpenAI for AI-generated insights on maintenance trends
+
+- **UI Display**:
+  - Summary cards showing counts by priority (Critical, High, Medium, Low)
+  - Bar chart visualization of priority distribution
+  - AI insights alert with overall assessment and recommendations
+  - Sortable table of top 50 devices showing:
+    - Device name/ID
+    - Maintenance score (color-coded: red ≥75, orange ≥50, yellow ≥25, green <25)
+    - Priority badge
+    - Burn hours (formatted with commas)
+    - Alert count badge
+    - Status badge (color-coded)
+    - Recommendations list (scrollable)
+
+##### AI Insights Page Features
+
+- **Three-Tab Interface**:
+  - **Alert Patterns**: Pattern detection with time range selector
+  - **Alert Summary**: Executive summaries with recommendations
+  - **Predictive Maintenance**: Maintenance scores and device prioritization
+
+- **Real-time Updates**: All queries use polling (60-120 second intervals) to keep data current
+
+- **Voice Briefing**: Speaker icon in header plays AI-generated audio briefing summarizing available insights
+
+- **Interactive Controls**:
+  - Time range selectors for pattern detection and summarization
+  - Refresh buttons to manually trigger data updates
+  - Loading states and skeleton loaders during data fetch
+
+##### Data Flow for AI Insights
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant AI as AI Insights Page
+    participant tRPC as tRPC ai.*
+    participant Server
+    participant DB as PostgreSQL
+    participant OpenAI
+
+    Note over User,OpenAI: Alert Pattern Detection Flow
+    User->>AI: Select time range (24h/7d/30d)
+    AI->>tRPC: ai.detectAlertPatterns({ timeRange })
+    tRPC->>Server: Forward request
+    Server->>DB: getAllAlerts() + getAllDevices()
+    DB-->>Server: Alerts + Devices data
+    Server->>Server: Filter by time range, enrich with device metadata
+    Server->>OpenAI: invokeLLM(pattern analysis prompt + enriched alerts)
+    OpenAI-->>Server: JSON { patterns[], summary }
+    Server-->>tRPC: Pattern data
+    tRPC-->>AI: Display patterns in UI
+
+    Note over User,OpenAI: Alert Summarization Flow
+    User->>AI: Select time range
+    AI->>tRPC: ai.summarizeAlerts({ timeRange, maxAlerts })
+    tRPC->>Server: Forward request
+    Server->>DB: getAllAlerts() + getAllDevices()
+    DB-->>Server: Recent alerts + device info
+    Server->>Server: Filter, sort, enrich
+    Server->>OpenAI: invokeLLM(summarization prompt + alert data)
+    OpenAI-->>Server: JSON { summary, keyPoints[], recommendations[] }
+    Server-->>tRPC: Summary data
+    tRPC-->>AI: Display summary in UI
+
+    Note over User,OpenAI: Predictive Maintenance Flow
+    User->>AI: Navigate to Maintenance tab
+    AI->>tRPC: ai.getPredictiveMaintenanceScores()
+    tRPC->>Server: Forward request
+    Server->>DB: getAllDevices() + getAllAlerts()
+    DB-->>Server: Devices + recent alerts (30 days)
+    Server->>Server: Calculate maintenance scores:<br/>- Parse burn hours<br/>- Count alerts per device<br/>- Assess device status<br/>- Evaluate network reliability<br/>- Compute weighted scores<br/>- Generate recommendations
+    Server->>OpenAI: invokeLLM(insights prompt + top 20 devices)
+    OpenAI-->>Server: AI insights text
+    Server-->>tRPC: { devices[], summary{}, aiInsights }
+    tRPC-->>AI: Display maintenance scores in UI
+```
+
+##### Example Use Cases
+
+**Alert Pattern Detection**:
+- **Scenario**: Operations manager notices recurring power loss alerts
+- **Action**: Navigate to AI Insights → Alert Patterns tab, select "7d" time range
+- **Result**: AI identifies "Power Loss events clustered in downtown area, affecting 12 devices. Pattern suggests potential infrastructure issue in grid sector B-3."
+
+**Alert Summarization**:
+- **Scenario**: City council meeting requires executive summary of recent incidents
+- **Action**: Navigate to AI Insights → Alert Summary tab, select "24h" time range
+- **Result**: AI generates: "Summary: 23 alerts in last 24 hours. 3 critical power loss events, 8 high-severity tilt alerts. Key Points: Downtown sector experiencing infrastructure stress. Recommendations: Schedule maintenance crew for grid inspection, prioritize devices with >5 alerts."
+
+**Predictive Maintenance**:
+- **Scenario**: Maintenance team needs to prioritize device replacements
+- **Action**: Navigate to AI Insights → Predictive Maintenance tab
+- **Result**: Table shows devices sorted by maintenance score. Top device: "BAL000321 - Score 87 (Critical), 45,230 burn hours, 8 alerts. Recommendations: Consider lamp replacement soon, investigate root cause of frequent alerts."
 
 ### How Voice & TTS Work
 

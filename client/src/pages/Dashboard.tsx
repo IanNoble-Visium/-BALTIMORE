@@ -60,6 +60,54 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+
+function AnimatedNumber({
+  value,
+  duration = 800,
+  prefix = "",
+  suffix = "",
+}: {
+  value: number;
+  duration?: number;
+  prefix?: string;
+  suffix?: string;
+}) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const target = Number.isFinite(value) ? value : 0;
+    const start = performance.now();
+
+    let frame: number;
+    const animate = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(Math.round(target * eased));
+      if (progress < 1) {
+        frame = requestAnimationFrame(animate);
+      }
+    };
+
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+
+  return (
+    <span>
+      {prefix}
+      {displayValue.toLocaleString()}
+      {suffix}
+    </span>
+  );
+}
 
 /**
  * Main Dashboard for Baltimore Smart City
@@ -493,6 +541,17 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="container py-6 space-y-6">
+        <Breadcrumb className="mb-4 hidden md:block">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Command Center</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         {/* Data Seeding Alert */}
         {isDataEmpty && (
           <Card className="border-primary/50 bg-primary/5">
@@ -552,7 +611,7 @@ export default function Dashboard() {
                 {devicesLoading ? (
                   <div className="h-9 w-20 shimmer rounded" />
                 ) : (
-                  deviceStats?.total || 0
+                  <AnimatedNumber value={deviceStats?.total || 0} />
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -572,7 +631,7 @@ export default function Dashboard() {
                 {devicesLoading ? (
                   <div className="h-9 w-20 shimmer rounded" />
                 ) : (
-                  deviceStats?.online || 0
+                  <AnimatedNumber value={deviceStats?.online || 0} />
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -594,7 +653,7 @@ export default function Dashboard() {
                 {alertsLoading ? (
                   <div className="h-9 w-20 shimmer rounded" />
                 ) : (
-                  alertStats?.active || 0
+                  <AnimatedNumber value={alertStats?.active || 0} />
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Requiring attention</p>
@@ -612,7 +671,10 @@ export default function Dashboard() {
                 {kpisLoading ? (
                   <div className="h-9 w-20 shimmer rounded" />
                 ) : (
-                  `${kpis?.deviceHealthScore || 0}%`
+                  <AnimatedNumber
+                    value={kpis?.deviceHealthScore || 0}
+                    suffix="%"
+                  />
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Overall system health</p>

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { Alert } from "@shared/types";
 import type { DateRange } from "react-day-picker";
 import { format, endOfDay, startOfDay, subDays } from "date-fns";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
+import { useAlertInsights } from "@/hooks/useAlertInsights";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -16,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Download, Filter } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CalendarIcon, Download, Filter, Info } from "lucide-react";
 import { SortableDataTable, type DataTableColumn } from "@/components/SortableDataTable";
 
 function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
@@ -101,79 +103,29 @@ export default function DataTables() {
     });
   }, [alerts, severity, type, dateRange]);
 
-  const severitySummary = useMemo(() => {
-    const counts: Record<Alert["severity"], number> = {
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-    };
-
-    for (const alert of filteredAlerts) {
-      counts[alert.severity] += 1;
-    }
-
-    return {
-      total: filteredAlerts.length,
-      counts,
-    };
-  }, [filteredAlerts]);
-
-  const trendSummary = useMemo(() => {
-    const now = new Date();
-    const sevenDaysAgo = subDays(now, 7);
-
-    const baselineCount = alerts.filter(a => {
-      if (!a.timestamp) return false;
-      const alertDate = new Date(a.timestamp);
-      if (alertDate < sevenDaysAgo || alertDate > now) return false;
-
-      if (severity !== "ALL" && a.severity !== severity) return false;
-      if (type !== "ALL" && a.alertType !== type) return false;
+  const baselineFilter = useCallback(
+    (alert: Alert) => {
+      if (severity !== "ALL" && alert.severity !== severity) return false;
+      if (type !== "ALL" && alert.alertType !== type) return false;
 
       return true;
-    }).length;
+    },
+    [severity, type],
+  );
 
-    const currentCount = filteredAlerts.length;
-    const diff = currentCount - baselineCount;
-
-    let percent = 0;
-    if (baselineCount === 0) {
-      percent = currentCount > 0 ? 100 : 0;
-    } else {
-      percent = Math.round((diff / baselineCount) * 100);
-    }
-
-    return {
-      current: currentCount,
-      baseline: baselineCount,
-      diff,
-      percent,
-    };
-  }, [alerts, severity, type, filteredAlerts]);
-
-  const showTrend = trendSummary.baseline > 0 || trendSummary.current > 0;
-  const isNeutral =
-    Math.abs(trendSummary.percent) <= 2 || trendSummary.diff === 0;
-  const isPositive = trendSummary.diff < 0 && !isNeutral;
-  const isNegative = trendSummary.diff > 0 && !isNeutral;
-
-  const trendText = (() => {
-    if (!showTrend) {
-      return "No recent alerts to compare vs. last 7 days.";
-    }
-
-    if (isNeutral) {
-      return "Stable vs. last 7 days";
-    }
-
-    const arrow = trendSummary.diff > 0 ? "↑" : "↓";
-    const sign = trendSummary.diff > 0 ? "+" : "";
-    const diffAbs = Math.abs(trendSummary.diff);
-    const alertsWord = diffAbs === 1 ? "alert" : "alerts";
-
-    return `${arrow} ${diffAbs.toLocaleString()} ${alertsWord} (${sign}${trendSummary.percent}%) vs. last 7 days`;
-  })();
+  const {
+    severitySummary,
+    trendSummary,
+    showTrend,
+    isNeutral,
+    isPositive,
+    isNegative,
+    trendText,
+  } = useAlertInsights({
+    alerts,
+    filteredAlerts,
+    baselineFilter,
+  });
 
   const columns: DataTableColumn<Alert>[] = useMemo(
     () => [
@@ -250,13 +202,36 @@ export default function DataTables() {
               {!alertsQuery.isLoading && (
                 <p
                   className={cn(
-                    "text-[11px]",
+                    "flex items-center gap-1 text-[11px]",
                     isNeutral && "text-muted-foreground",
                     isPositive && "text-emerald-400",
                     isNegative && "text-red-400",
                   )}
                 >
-                  {trendText}
+                  <span>{trendText}</span>
+                  {!isNeutral && (
+                    <span className="rounded-full border border-current/40 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide">
+                      {isPositive ? "Improving" : "Worsening"}
+                    </span>
+                  )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-current/40 bg-background/70 text-[10px]"
+                        aria-label="How is this trend calculated?"
+                      >
+                        <Info className="h-3 w-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <span>
+                        Compares the current filtered alert count with alerts from the
+                        last 7 days using the same filters (severity, type, etc.),
+                        ignoring the date range picker.
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
                 </p>
               )}
             </div>
