@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
-import { invokeLLM } from "./_core/llm";
+import { invokeLLM, type Message as LlmMessage } from "./_core/llm";
 import { ENV } from "./_core/env";
 import { z } from "zod";
 import {
@@ -155,8 +155,70 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        const [deviceStats, alertStats, kpis, activeAlerts] = await Promise.all([
+          getDeviceStatistics(),
+          getAlertStatistics(),
+          getLatestKPIs(),
+          getActiveAlerts(),
+        ]);
+
+        const contextParts: string[] = [];
+        contextParts.push(
+          "You are an AI assistant embedded in the Baltimore Smart City TruContext dashboard at the Command Center.",
+        );
+
+        if (deviceStats) {
+          contextParts.push(
+            `There are ${deviceStats.total ?? 0} Ubicell devices, with ${deviceStats.online ?? 0} online and ${deviceStats.offline ?? 0} offline or in power loss state.`,
+          );
+        }
+
+        if (alertStats) {
+          const activeCount = alertStats.active ?? 0;
+          const bySeverity = alertStats.bySeverity ?? [];
+          const severitySummary = bySeverity
+            .map(row => `${row.severity}: ${row.count}`)
+            .join(", ");
+
+          contextParts.push(
+            `There are ${activeCount} active alerts across the city. Alert counts by severity are: ${severitySummary || "none"}.`,
+          );
+        }
+
+        if (kpis) {
+          const health = kpis.deviceHealthScore ?? 0;
+          const avgResolution = kpis.avgResolutionTime ?? null;
+          contextParts.push(
+            `The current overall device health score is ${health} percent.`,
+          );
+          if (avgResolution !== null) {
+            contextParts.push(
+              `Average incident resolution time is ${avgResolution.toFixed(2)} hours.`,
+            );
+          }
+        }
+
+        if (activeAlerts && activeAlerts.length > 0) {
+          const sample = activeAlerts.slice(0, 5);
+          const sampleSummary = sample
+            .map(a => `${a.severity} ${a.alertType} at device ${a.deviceId}`)
+            .join("; ");
+          contextParts.push(
+            `Sample active alerts include: ${sampleSummary}.`,
+          );
+        }
+
+        contextParts.push(
+          "Use this live context plus any details the user provides to answer questions about devices, alerts, KPIs, and trends in clear, non-technical language.",
+        );
+
+        const contextMessage: LlmMessage = {
+          role: "system",
+          content: contextParts.join(" "),
+        };
+
         const result = await invokeLLM({
-          messages: input.messages,
+          messages: [contextMessage, ...input.messages],
         });
 
         const choice = result.choices[0];
