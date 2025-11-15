@@ -163,6 +163,174 @@ sequenceDiagram
     Frontend-->>User: Display Response
 ```
 
+## 🧠 AI & Voice Experience
+
+### Overview
+
+The Baltimore Smart City Command Center includes a full AI and voice layer that sits on top of the live dashboard data:
+
+- **AI Command Assistant** (Dashboard)
+- **AI Insights** page (alert patterns, summaries, predictive maintenance)
+- **Voice briefings** for KPIs, alerts, analytics, and AI insights
+- **Spoken alert announcements** on the Interactive Map
+
+All of these features are powered by:
+
+- **tRPC router** under `ai.*`
+- **OpenAI Chat Completions API** (LLM) via `invokeLLM`
+- **OpenAI Text-to-Speech API** via `ai.speakAlert` and `ai.speakText`
+- Live **PostgreSQL data** (devices, alerts, KPIs) accessed through Drizzle-based helpers
+
+### How AI Chat Works
+
+#### 1. AI Command Assistant (Dashboard)
+
+- UI component: `AIChatBox` rendered on `Dashboard.tsx` under **AI Command Assistant**.
+- User messages are accumulated into a `messages: Message[]` array.
+- When the user sends a message:
+  - The client calls `trpc.ai.chat.mutate({ messages })`.
+
+On the server (`server/routers.ts`):
+
+- `ai.chat` receives the messages and fetches **live dashboard data**:
+  - `getDeviceStatistics()`
+  - `getAlertStatistics()`
+  - `getLatestKPIs()`
+  - `getActiveAlerts()`
+- It builds a **system context message** that describes:
+  - Total devices, online/offline counts
+  - Active alert counts by severity
+  - Current device health score and average resolution time
+  - A few sample active alerts (severity, type, deviceId)
+- This context message is prepended to the message list:
+  - `[contextMessage, ...input.messages]`
+- The combined messages are sent to `invokeLLM`, which calls the OpenAI Chat Completions API (`gpt-4o-mini`).
+- The first choice is returned as the assistant’s response and streamed back through tRPC.
+
+This means the assistant always answers with **current Command Center context**, not just a generic chat.
+
+#### 2. AI Insights Page
+
+On the `/ai` route (`AI.tsx`):
+
+- tRPC queries fetch AI-augmented data:
+  - `trpc.ai.detectAlertPatterns`
+  - `trpc.ai.summarizeAlerts`
+  - `trpc.ai.getPredictiveMaintenanceScores`
+- These endpoints (defined under `ai.*` in `server/routers.ts`) use the same `invokeLLM` helper to:
+  - Analyze alert history for patterns
+  - Generate executive summaries and recommendations
+  - Score devices for predictive maintenance priority
+
+The AI Insights page displays:
+
+- Pattern summaries + detected patterns list
+- Alert executive summaries, key points, and recommendations
+- Maintenance scores and AI-generated maintenance insights
+
+### How Voice & TTS Work
+
+#### TTS Endpoints
+
+Two tRPC mutations handle Text-to-Speech using the OpenAI audio API:
+
+- `ai.speakAlert`
+  - Inputs: `title`, optional `deviceName`, optional `severity`.
+  - Builds a short urgent phrase (e.g. *"Urgent alert. Power Loss at device BAL000321. Severity critical."*).
+  - Calls `https://api.openai.com/v1/audio/speech` with model `tts-1` and a randomly chosen voice from `alloy | shimmer | verse`.
+  - Returns `audioBase64` (MP3) and `voice`.
+
+- `ai.speakText`
+  - Inputs: `text`, optional `tone` string.
+  - Optional tone is used to nudge OpenAI (e.g. *"Calm, executive analytics summary:"*).
+  - Same TTS endpoint and voice selection.
+  - Returns `audioBase64` and `voice`.
+
+#### Where Voice is Used
+
+- **Interactive Map – Device Alarm Dialog**
+  - On dialog open, `ai.speakAlert` is called for the primary alert on that device.
+  - The MP3 is played immediately and cached as a `data:audio/mp3;base64,…` URL.
+  - A replay button with tooltip **"Replay alert audio"** replays from cache.
+
+- **Dashboard – KPI Briefing**
+  - Speaker icon above the KPI cards calls `ai.speakText` with a script like:
+    - *"Baltimore Smart City Command Center status update. There are X devices, Y online, Z offline, and A active alerts. Overall system health score is H percent."*
+  - Tone is based on **highest alert severity**.
+
+- **Dashboard – Most Severe Alert**
+  - Speaker icon in Recent Alerts card calls `ai.speakText` with:
+    - *"Baltimore Smart City Command Center critical alert. Power Loss at device BAL000321, reported at …"*
+  - Uses severity-based tones and caches the audio.
+
+- **Dashboard – AI Command Assistant (Voice)**
+  - Speaker icon in the AI card header calls `ai.speakText` with the **last assistant message**.
+  - Tone: *"Calm, helpful explanation for city operations staff:"*.
+  - Audio is cached so replay does not re-call TTS.
+
+- **Analytics Page – Analytics Summary**
+  - Speaker icon in the Analytics header calls `ai.speakText` with a short analytics summary:
+    - Devices count, dominant status, total alerts, and dominant severity.
+  - Tone: *"Calm, executive analytics summary:"*.
+
+- **AI Insights – AI Briefing**
+  - Speaker icon in the AI Insights header calls `ai.speakText` with a multi-sentence briefing:
+    - Mentions patterns, summaries, and maintenance scores when available.
+  - Tone: *"Calm, executive AI insights briefing for city operations leaders:"*.
+
+All of these voice features **cache the returned audio URL** so repeated clicks replay instantly without additional OpenAI calls.
+
+### AI & Voice Flow Diagrams
+
+#### AI Command Assistant Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Dashboard
+    participant tRPC as tRPC ai.chat
+    participant Server
+    participant DB as PostgreSQL
+    participant OpenAI
+
+    User->>Dashboard: Ask AI question
+    Dashboard->>tRPC: ai.chat({ messages })
+    tRPC->>Server: Forward request
+    Server->>DB: getDeviceStatistics / getAlertStatistics / getLatestKPIs / getActiveAlerts
+    DB-->>Server: Live stats + alerts
+    Server->>Server: Build system context message
+    Server->>OpenAI: invokeLLM(messages + context)
+    OpenAI-->>Server: AI completion
+    Server-->>tRPC: { content }
+    tRPC-->>Dashboard: Assistant message
+    Dashboard-->>User: Render AI response in AIChatBox
+```
+
+#### Voice Briefing Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as UI (Dashboard / Map / AI)
+    participant tRPC as tRPC ai.speakText / ai.speakAlert
+    participant Server
+    participant OpenAI
+
+    User->>UI: Click speaker icon
+    alt audio cached
+        UI->>UI: Replay cached data:audio/mp3 URL
+    else no cache
+        UI->>tRPC: speakText / speakAlert
+        tRPC->>Server: Forward request
+        Server->>OpenAI: TTS request (model tts-1)
+        OpenAI-->>Server: MP3 bytes
+        Server-->>tRPC: audioBase64
+        tRPC-->>UI: audioBase64
+        UI->>UI: Cache data:audio/mp3 URL
+        UI->>UI: Play audio
+    end
+```
+
 ### Database Schema
 
 ```mermaid
