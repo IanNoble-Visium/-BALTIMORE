@@ -64,7 +64,6 @@ import {
   Breadcrumb,
   BreadcrumbList,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
@@ -544,7 +543,7 @@ export default function Dashboard() {
         <Breadcrumb className="mb-4 hidden md:block">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+              <BreadcrumbPage>Dashboard</BreadcrumbPage>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -552,6 +551,7 @@ export default function Dashboard() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
+
         {/* Data Seeding Alert */}
         {isDataEmpty && (
           <Card className="border-primary/50 bg-primary/5">
@@ -601,7 +601,7 @@ export default function Dashboard() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Devices */}
-          <Card className="glass-gold">
+          <Card className="glass-gold transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(255,199,44,0.4)]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
               <Network className="h-4 w-4 text-primary" />
@@ -621,7 +621,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Online Devices */}
-          <Card className="glass">
+          <Card className="glass transition-all duration-300 hover:-translate-y-1 hover:border-chart-1/60 hover:shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Online Devices</CardTitle>
               <Activity className="h-4 w-4 text-chart-1" />
@@ -643,7 +643,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Active Alerts */}
-          <Card className="glass">
+          <Card className="glass transition-all duration-300 hover:-translate-y-1 hover:border-chart-3/60 hover:shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
               <AlertTriangle className="h-4 w-4 text-chart-3" />
@@ -661,7 +661,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Device Health Score */}
-          <Card className="glass">
+          <Card className="glass transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Health Score</CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
