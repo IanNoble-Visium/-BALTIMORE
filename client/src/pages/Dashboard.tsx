@@ -968,7 +968,7 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="grid gap-2 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-1.5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
               {/* Incident Timeline */}
               <div className="space-y-1.5">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
@@ -981,7 +981,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={incidentChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <LineChart
                       data={incidentTimeline}
@@ -1021,7 +1021,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={severityChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <RadialBarChart
                       data={severityRadialData}
@@ -1055,7 +1055,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={typeChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <Treemap
                       data={alertTreemapData}
@@ -1082,7 +1082,16 @@ export default function Dashboard() {
                               fill={fillColor}
                               stroke="#020617"
                               style={{ cursor: "pointer" }}
-                              onClick={() => handleTypeDrilldown(name)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTypeDrilldown(name);
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.opacity = "0.8";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.opacity = "1";
+                              }}
                             />
                             {width > 50 && height > 30 && (
                               <text
@@ -1092,6 +1101,7 @@ export default function Dashboard() {
                                 fill="#fff"
                                 fontSize={12}
                                 fontWeight="medium"
+                                pointerEvents="none"
                               >
                                 {name}
                               </text>
@@ -1116,7 +1126,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={severityChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <RadarChart data={radarSeverityData}>
                       <PolarGrid />
@@ -1148,7 +1158,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={incidentChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <ScatterChart margin={{ left: 4, right: 4, top: 12, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
@@ -1188,7 +1198,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={deviceStatusChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <PieChart>
                       <Pie
@@ -1227,7 +1237,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={networkChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <RadialBarChart
                       data={networkCoverageData}
@@ -1267,7 +1277,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={composedChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <ComposedChart
                       data={composedTimelineData}
@@ -1326,7 +1336,7 @@ export default function Dashboard() {
                 ) : (
                   <ChartContainer
                     config={funnelChartConfig}
-                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-48 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <BarChart
                       data={alertFunnelData}
