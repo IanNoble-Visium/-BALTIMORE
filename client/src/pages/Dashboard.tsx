@@ -1093,7 +1093,7 @@ export default function Dashboard() {
                                 e.currentTarget.style.opacity = "1";
                               }}
                             />
-                            {width > 50 && height > 30 && (
+                            {width > 30 && height > 18 && (
                               <text
                                 x={x + width / 2}
                                 y={y + height / 2}
