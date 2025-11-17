@@ -16,6 +16,8 @@ import {
   Brain,
   BarChart3,
   Volume2,
+  Settings,
+  Info,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { MapboxMap } from "@/components/Map";
@@ -128,6 +130,7 @@ export default function Dashboard() {
   const { user, loading, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
 
   // Redirect to landing if authenticated is required via OAuth
   useEffect(() => {
@@ -807,6 +810,26 @@ export default function Dashboard() {
                 {user?.email || "admin@visium.com"}
               </p>
             </div>
+            {user?.role === "admin" && (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 rounded-full border-primary/60 text-primary"
+                      onClick={() => setAdminDialogOpen(true)}
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="end">
+                    <span className="text-xs">Admin tools & data seeding</span>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -849,6 +872,36 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Admin Tools</DialogTitle>
+              <DialogDescription>
+                Manage demo data for the Baltimore Smart City environment.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-primary mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Seed Database</p>
+                  <p className="text-xs text-muted-foreground">
+                    Populate the environment with sample devices, alerts, and metrics for
+                    interactive dashboard and analytics demos.
+                  </p>
+                  <Button
+                    onClick={handleSeedData}
+                    disabled={seedDataMutation.isPending}
+                    className="mt-2"
+                  >
+                    {seedDataMutation.isPending ? "Seeding Data..." : "Seed Database"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* KPI Cards */}
         <div className="flex items-center justify-between gap-3 flex-wrap mb-1">

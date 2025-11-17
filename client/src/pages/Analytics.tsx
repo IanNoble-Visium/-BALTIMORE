@@ -438,7 +438,7 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={alertTimelineConfig}>
+              <ChartContainer config={alertTimelineConfig} className="h-64">
                 <LineChart
                   data={alertTimeline}
                   margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
@@ -495,7 +495,7 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={alertTypeConfig}>
+              <ChartContainer config={alertTypeConfig} className="h-64">
                 <PieChart>
                   <Pie
                     data={alertTypeDistribution}
@@ -546,7 +546,7 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={deviceStatusConfig}>
+              <ChartContainer config={deviceStatusConfig} className="h-64">
                 <BarChart
                   data={deviceStatusData}
                   margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
@@ -595,7 +595,7 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={burnHoursConfig}>
+              <ChartContainer config={burnHoursConfig} className="h-64">
                 <BarChart
                   data={burnHoursData}
                   margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
@@ -643,7 +643,7 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={networkTypeConfig}>
+              <ChartContainer config={networkTypeConfig} className="h-72">
                 <BarChart
                   data={networkTypeData}
                   margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
