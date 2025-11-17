@@ -131,6 +131,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [seedSuccessDialogOpen, setSeedSuccessDialogOpen] = useState(false);
   const utils = trpc.useUtils();
 
   // Redirect to landing if authenticated is required via OAuth
@@ -443,6 +444,18 @@ export default function Dashboard() {
     [alertTypeDistribution],
   );
 
+  // Debug logging for Alert Type Treemap data flow (DEV only)
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    console.log("[Dashboard][Treemap] alertStats.byType:", alertStats?.byType);
+    console.log(
+      "[Dashboard][Treemap] alertTypeDistribution:",
+      alertTypeDistribution,
+    );
+    console.log("[Dashboard][Treemap] alertTreemapData:", alertTreemapData);
+  }, [alertStats, alertTypeDistribution, alertTreemapData]);
+
   const radarSeverityData = useMemo(
     () =>
       severityDistribution.map(row => ({
@@ -678,6 +691,7 @@ export default function Dashboard() {
       }
 
       setAdminDialogOpen(false);
+      setSeedSuccessDialogOpen(true);
     },
     onError: error => {
       console.error("[Dashboard] Seed data mutation failed:", error);
@@ -686,7 +700,7 @@ export default function Dashboard() {
       });
     },
   });
-  
+
   const handleSeedData = async () => {
     console.log("[Dashboard] Seed Database button clicked", {
       user,
@@ -764,16 +778,24 @@ export default function Dashboard() {
   };
 
   const AlertTreemapContent = (props: any) => {
-    const { x, y, width, height, payload } = props;
-    if (!payload) return null;
+    const { x, y, width, height, name, depth, payload } = props;
 
-    const name: string = payload.name || "Unknown";
+    // Skip the root node and any degenerate rectangles
+    if (depth === 0 || width <= 0 || height <= 0) {
+      return null;
+    }
+
+    const label: string =
+      (typeof name === "string" && name) ||
+      (payload && typeof payload.name === "string" && payload.name) ||
+      "Unknown";
+
     const colorMap: Record<string, string> = {
       "Power Loss": BALTIMORE_COLORS.accentOrange,
       "Sudden Tilt": BALTIMORE_COLORS.accentBlue,
       "Low Voltage": BALTIMORE_COLORS.accentGreen,
     };
-    const fillColor = colorMap[name] || BALTIMORE_COLORS.accentRed;
+    const fillColor = colorMap[label] || BALTIMORE_COLORS.accentRed;
 
     return (
       <g>
@@ -787,7 +809,7 @@ export default function Dashboard() {
           style={{ cursor: "pointer" }}
           onClick={(e: any) => {
             e.stopPropagation();
-            handleTypeDrilldown(name);
+            handleTypeDrilldown(label);
           }}
           onMouseEnter={(e: any) => {
             e.currentTarget.style.opacity = "0.8";
@@ -806,7 +828,7 @@ export default function Dashboard() {
             fontWeight="medium"
             pointerEvents="none"
           >
-            {name}
+            {label}
           </text>
         )}
       </g>
@@ -985,6 +1007,22 @@ export default function Dashboard() {
                   </Button>
                 </div>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={seedSuccessDialogOpen} onOpenChange={setSeedSuccessDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Database seeding complete</DialogTitle>
+              <DialogDescription>
+                Demo data seeded successfully. Charts and device metrics have been refreshed.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 flex justify-end">
+              <Button type="button" onClick={() => setSeedSuccessDialogOpen(false)}>
+                OK
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
