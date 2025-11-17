@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import mapboxgl from "mapbox-gl";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { MapboxMap } from "@/components/Map";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +48,22 @@ export default function InteractiveMap() {
 
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
+
+  const [locationString] = useLocation();
+
+  // Support deep-linking from the dashboard/analytics (e.g. /map?deviceId=123)
+  useEffect(() => {
+    try {
+      const url = new URL(locationString, window.location.origin);
+      const deviceIdParam = url.searchParams.get("deviceId");
+      if (deviceIdParam) {
+        setSelectedDeviceId(deviceIdParam);
+        setDeviceDialogOpen(true);
+      }
+    } catch {
+      // Ignore malformed URLs in non-browser contexts
+    }
+  }, [locationString]);
 
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showClusters, setShowClusters] = useState(true);
@@ -840,4 +857,3 @@ export default function InteractiveMap() {
     </div>
   );
 }
-

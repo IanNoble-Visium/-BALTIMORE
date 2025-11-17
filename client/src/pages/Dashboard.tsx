@@ -52,6 +52,7 @@ import {
   Scatter,
   ScatterChart,
   ZAxis,
+  ComposedChart,
 } from "recharts";
 import { toast as sonnerToast } from "sonner";
 import {
@@ -406,6 +407,113 @@ export default function Dashboard() {
       }));
   }, [kpiHistory]);
 
+  // Additional derived datasets for advanced visual charts
+  const severityRadialData = useMemo(
+    () =>
+      severityDistribution.map(row => ({
+        severity: row.severity,
+        count: row.count,
+        fill: `var(--color-${row.severity.toLowerCase()})`,
+      })),
+    [severityDistribution],
+  );
+
+  const alertTreemapData = useMemo(
+    () =>
+      alertTypeDistribution.map(row => ({
+        name: row.type,
+        size: row.count,
+      })),
+    [alertTypeDistribution],
+  );
+
+  const radarSeverityData = useMemo(
+    () =>
+      severityDistribution.map(row => ({
+        severity: row.severity,
+        count: row.count,
+      })),
+    [severityDistribution],
+  );
+
+  const scatterTimelineData = useMemo(
+    () =>
+      incidentTimeline.map((row, index) => ({
+        index,
+        date: row.date,
+        count: row.count,
+      })),
+    [incidentTimeline],
+  );
+
+  // Composed chart data: alerts vs resolution time
+  const composedTimelineData = useMemo(() => {
+    if (!incidentTimeline.length || !resolutionTrend.length) return [];
+    // Match by index since they're both time-series
+    const maxLen = Math.max(incidentTimeline.length, resolutionTrend.length);
+    return Array.from({ length: maxLen }, (_, i) => ({
+      date: incidentTimeline[i]?.date || resolutionTrend[i]?.label || "",
+      alerts: incidentTimeline[i]?.count || 0,
+      resolution: resolutionTrend[i]?.hours || 0,
+    }));
+  }, [incidentTimeline, resolutionTrend]);
+
+  // Device status distribution for pie chart
+  const deviceStatusDistribution = useMemo(() => {
+    if (!devices) return [] as { status: string; count: number }[];
+    const statusCounts = new Map<string, number>();
+    devices.forEach(device => {
+      const status = (device.nodeStatus ?? "Unknown").toString().toUpperCase();
+      statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
+    });
+    return Array.from(statusCounts.entries()).map(([status, count]) => ({
+      status,
+      count,
+    }));
+  }, [devices]);
+
+  // Network coverage & capacity data for nested radial bars
+  const networkCoverageData = useMemo(() => {
+    if (!devices) return [] as { network: string; total: number; online: number }[];
+    const networkMap = new Map<string, { total: number; online: number }>();
+    devices.forEach(device => {
+      const network = (device.networkType ?? "Unknown").toString();
+      const status = (device.nodeStatus ?? "").toString().toUpperCase();
+      const existing = networkMap.get(network) || { total: 0, online: 0 };
+      existing.total += 1;
+      if (status === "ONLINE") existing.online += 1;
+      networkMap.set(network, existing);
+    });
+    return Array.from(networkMap.entries()).map(([network, stats]) => ({
+      network,
+      total: stats.total,
+      online: stats.online,
+      offline: stats.total - stats.online,
+    }));
+  }, [devices]);
+
+  // Alert resolution pipeline for funnel chart
+  const alertFunnelData = useMemo(() => {
+    if (!alertHistory) return [] as { stage: string; count: number }[];
+    const stageCounts = new Map<string, number>();
+    alertHistory.forEach(alert => {
+      const status = (alert.status ?? "active").toString().toLowerCase();
+      let stage = "Active";
+      if (status === "acknowledged") stage = "Acknowledged";
+      else if (status === "resolved") stage = "Resolved";
+      else if (status === "closed") stage = "Closed";
+      stageCounts.set(stage, (stageCounts.get(stage) || 0) + 1);
+    });
+    // Order: Active -> Acknowledged -> Resolved -> Closed
+    const order = ["Active", "Acknowledged", "Resolved", "Closed"];
+    return order
+      .map(stage => ({
+        stage,
+        count: stageCounts.get(stage) || 0,
+      }))
+      .filter(item => item.count > 0);
+  }, [alertHistory]);
+
   const BALTIMORE_COLORS = {
     primary: "#FFC72C",
     accentBlue: "#3b82f6",
@@ -466,6 +574,70 @@ export default function Dashboard() {
     },
   };
 
+  const composedChartConfig: ChartConfig = {
+    alerts: {
+      label: "Alert Volume",
+      color: BALTIMORE_COLORS.accentOrange,
+    },
+    resolution: {
+      label: "Avg Resolution (hrs)",
+      color: BALTIMORE_COLORS.accentBlue,
+    },
+  };
+
+  const deviceStatusChartConfig: ChartConfig = {
+    ONLINE: {
+      label: "Online",
+      color: BALTIMORE_COLORS.accentGreen,
+    },
+    OFFLINE: {
+      label: "Offline",
+      color: BALTIMORE_COLORS.accentRed,
+    },
+    "POWER LOSS": {
+      label: "Power Loss",
+      color: BALTIMORE_COLORS.accentOrange,
+    },
+    Unknown: {
+      label: "Unknown",
+      color: "#6b7280",
+    },
+  };
+
+  const networkChartConfig: ChartConfig = {
+    LTE: {
+      label: "LTE",
+      color: BALTIMORE_COLORS.accentBlue,
+    },
+    "LTE-M": {
+      label: "LTE-M",
+      color: BALTIMORE_COLORS.accentGreen,
+    },
+    Unknown: {
+      label: "Unknown",
+      color: "#6b7280",
+    },
+  };
+
+  const funnelChartConfig: ChartConfig = {
+    Active: {
+      label: "Active",
+      color: BALTIMORE_COLORS.accentRed,
+    },
+    Acknowledged: {
+      label: "Acknowledged",
+      color: BALTIMORE_COLORS.accentOrange,
+    },
+    Resolved: {
+      label: "Resolved",
+      color: BALTIMORE_COLORS.accentGreen,
+    },
+    Closed: {
+      label: "Closed",
+      color: BALTIMORE_COLORS.accentBlue,
+    },
+  };
+
   // Seed data if needed (for demo purposes)
   const seedDataMutation = trpc.admin.seedData.useMutation({
     onSuccess: data => {
@@ -502,6 +674,74 @@ export default function Dashboard() {
     type: "devices" | "alerts";
     rows: any[];
   } | null>(null);
+
+  // Handler functions for chart drill-down
+  const handleSeverityDrilldown = (severity: string) => {
+    if (!alertHistory) return;
+    const filtered = alertHistory.filter(
+      a => a.severity?.toLowerCase() === severity.toLowerCase(),
+    );
+    setAnalyticsDrilldown({
+      title: `${severity.toUpperCase()} Severity Alerts`,
+      type: "alerts",
+      rows: filtered,
+    });
+  };
+
+  const handleTypeDrilldown = (alertType: string) => {
+    if (!alertHistory) return;
+    const filtered = alertHistory.filter(
+      a => (a.alertType ?? "").toLowerCase() === alertType.toLowerCase(),
+    );
+    setAnalyticsDrilldown({
+      title: `${alertType} Alerts`,
+      type: "alerts",
+      rows: filtered,
+    });
+  };
+
+  const handleStatusDrilldown = (status: string) => {
+    if (!devices) return;
+    const filtered = devices.filter(
+      d => (d.nodeStatus ?? "").toString().toUpperCase() === status.toUpperCase(),
+    );
+    setAnalyticsDrilldown({
+      title: `${status} Devices`,
+      type: "devices",
+      rows: filtered,
+    });
+  };
+
+  const handleNetworkDrilldown = (network: string) => {
+    if (!devices) return;
+    const filtered = devices.filter(
+      d => (d.networkType ?? "").toString() === network,
+    );
+    setAnalyticsDrilldown({
+      title: `${network} Network Devices`,
+      type: "devices",
+      rows: filtered,
+    });
+  };
+
+  const handleFunnelDrilldown = (stage: string) => {
+    if (!alertHistory) return;
+    const statusMap: Record<string, string> = {
+      Active: "active",
+      Acknowledged: "acknowledged",
+      Resolved: "resolved",
+      Closed: "closed",
+    };
+    const status = statusMap[stage] || stage.toLowerCase();
+    const filtered = alertHistory.filter(
+      a => (a.status ?? "active").toString().toLowerCase() === status,
+    );
+    setAnalyticsDrilldown({
+      title: `${stage} Alerts`,
+      type: "alerts",
+      rows: filtered,
+    });
+  };
 
   const selectedDevice = useMemo(
     () => devices?.find(d => d.deviceId === selectedDeviceId) ?? null,
@@ -769,62 +1009,12 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Alert Type Distribution */}
+              {/* Severity Radial Mix */}
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Alert Types
+                  Severity Radial Mix
                 </p>
-                {alertTypeDistribution.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Alert type distribution will appear as alerts accumulate.
-                  </p>
-                ) : (
-                  <ChartContainer
-                    config={typeChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
-                  >
-                    <PieChart>
-                      <Pie
-                        dataKey="count"
-                        data={alertTypeDistribution}
-                        nameKey="type"
-                        innerRadius={40}
-                        outerRadius={64}
-                        paddingAngle={4}
-                      >
-                        {alertTypeDistribution.map((entry, index) => {
-                          const key = entry.type.toLowerCase();
-                          const colorKey =
-                            key.includes("power")
-                              ? "power"
-                              : key.includes("tilt")
-                                ? "tilt"
-                                : key.includes("volt")
-                                  ? "voltage"
-                                  : "other";
-                          return (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={`var(--color-${colorKey})`}
-                              stroke="#020617"
-                              strokeWidth={1}
-                            />
-                          );
-                        })}
-                      </Pie>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="type" />} />
-                      <ChartLegend content={<ChartLegendContent nameKey="type" />} />
-                    </PieChart>
-                  </ChartContainer>
-                )}
-              </div>
-
-              {/* Severity Distribution */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Severity Mix
-                </p>
-                {severityDistribution.length === 0 ? (
+                {severityRadialData.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
                     Severity distribution will appear here once alerts exist.
                   </p>
@@ -833,71 +1023,304 @@ export default function Dashboard() {
                     config={severityChartConfig}
                     className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
-                    <BarChart
-                      data={severityDistribution}
-                      margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
+                    <RadialBarChart
+                      data={severityRadialData}
+                      innerRadius="30%"
+                      outerRadius="90%"
+                      startAngle={90}
+                      endAngle={-270}
                     >
-                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                      <XAxis
-                        dataKey="severity"
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={value =>
-                          String(value).charAt(0).toUpperCase() + String(value).slice(1)
-                        }
+                      <RadialBar
+                        dataKey="count"
+                        background
+                        cornerRadius={6}
+                        onClick={(data) => handleSeverityDrilldown(data.severity)}
+                        style={{ cursor: "pointer" }}
                       />
-                      <YAxis tickLine={false} axisLine={false} width={36} />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="count" radius={4} barSize={28}>
-                        {severityDistribution.map((entry, index) => (
-                          <Cell
-                            key={`bar-${index}`}
-                            fill={`var(--color-${entry.severity.toLowerCase()})`}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
+                    </RadialBarChart>
                   </ChartContainer>
                 )}
               </div>
 
-              {/* Resolution Time Trend */}
+              {/* Alert Type Treemap */}
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Avg Resolution Time
+                  Alert Type Treemap
                 </p>
-                {resolutionTrend.length === 0 ? (
+                {alertTreemapData.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    Resolution KPIs will appear here as incidents are resolved.
+                    Alert type treemap will appear as alerts accumulate.
                   </p>
                 ) : (
                   <ChartContainer
-                    config={resolutionChartConfig}
+                    config={typeChartConfig}
                     className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
-                    <AreaChart
-                      data={resolutionTrend}
+                    <Treemap
+                      data={alertTreemapData}
+                      dataKey="size"
+                      nameKey="name"
+                      stroke="#020617"
+                      fill={BALTIMORE_COLORS.primary}
+                    />
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Severity Radar Profile */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Severity Radar Profile
+                </p>
+                {radarSeverityData.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Radar profile will appear here once alerts exist.
+                  </p>
+                ) : (
+                  <ChartContainer
+                    config={severityChartConfig}
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                  >
+                    <RadarChart data={radarSeverityData}>
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="severity" />
+                      <PolarRadiusAxis />
+                      <Radar
+                        dataKey="count"
+                        stroke={BALTIMORE_COLORS.primary}
+                        fill={BALTIMORE_COLORS.primary}
+                        fillOpacity={0.5}
+                        onClick={(data) => handleSeverityDrilldown(data.severity)}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </RadarChart>
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Alert Volume Scatter */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Alert Volume Scatter
+                </p>
+                {scatterTimelineData.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Alert scatter will appear here as incidents are generated.
+                  </p>
+                ) : (
+                  <ChartContainer
+                    config={incidentChartConfig}
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                  >
+                    <ScatterChart margin={{ left: 4, right: 4, top: 12, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                      <XAxis
+                        dataKey="index"
+                        name="Day"
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        dataKey="count"
+                        name="Alerts"
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <ZAxis range={[60, 160]} dataKey="count" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Scatter
+                        name="Alerts"
+                        data={scatterTimelineData}
+                        fill={BALTIMORE_COLORS.accentBlue}
+                      />
+                    </ScatterChart>
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Device Status Distribution (Pie) */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Device Status Distribution
+                </p>
+                {deviceStatusDistribution.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Device status distribution will appear here once devices are loaded.
+                  </p>
+                ) : (
+                  <ChartContainer
+                    config={deviceStatusChartConfig}
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                  >
+                    <PieChart>
+                      <Pie
+                        data={deviceStatusDistribution}
+                        dataKey="count"
+                        nameKey="status"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ status, count }) => `${status}: ${count}`}
+                        onClick={(data) => handleStatusDrilldown(data.status)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        {deviceStatusDistribution.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={`var(--color-${entry.status})`}
+                          />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Network Coverage & Capacity (Nested RadialBar) */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Network Coverage & Capacity
+                </p>
+                {networkCoverageData.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Network coverage data will appear here once devices are loaded.
+                  </p>
+                ) : (
+                  <ChartContainer
+                    config={networkChartConfig}
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                  >
+                    <RadialBarChart
+                      data={networkCoverageData}
+                      innerRadius="20%"
+                      outerRadius="90%"
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      <RadialBar
+                        dataKey="total"
+                        background
+                        cornerRadius={6}
+                        onClick={(data) => handleNetworkDrilldown(data.network)}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <RadialBar
+                        dataKey="online"
+                        cornerRadius={6}
+                        onClick={(data) => handleNetworkDrilldown(data.network)}
+                        style={{ cursor: "pointer" }}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </RadialBarChart>
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Alerts vs Resolution (Composed) */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Alerts vs Resolution
+                </p>
+                {composedTimelineData.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Combined alert and resolution trend will appear as data accumulates.
+                  </p>
+                ) : (
+                  <ChartContainer
+                    config={composedChartConfig}
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                  >
+                    <ComposedChart
+                      data={composedTimelineData}
                       margin={{ left: 4, right: 4, top: 12, bottom: 4 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                       <XAxis
-                        dataKey="label"
+                        dataKey="date"
                         tickLine={false}
                         axisLine={false}
                         minTickGap={12}
                       />
-                      <YAxis tickLine={false} axisLine={false} width={40} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Area
-                        type="monotone"
-                        dataKey="hours"
-                        stroke="var(--color-resolution)"
-                        strokeWidth={3}
-                        fill="var(--color-resolution)"
-                        fillOpacity={0.45}
-                        name="resolution"
+                      <YAxis
+                        yAxisId="left"
+                        tickLine={false}
+                        axisLine={false}
+                        width={40}
                       />
-                    </AreaChart>
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tickLine={false}
+                        axisLine={false}
+                        width={40}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="alerts"
+                        barSize={16}
+                        radius={4}
+                        fill={BALTIMORE_COLORS.accentOrange}
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="resolution"
+                        stroke={BALTIMORE_COLORS.accentBlue}
+                        strokeWidth={3}
+                        dot={false}
+                      />
+                    </ComposedChart>
+                  </ChartContainer>
+                )}
+              </div>
+
+              {/* Alert Resolution Pipeline (Funnel) */}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  Alert Resolution Pipeline
+                </p>
+                {alertFunnelData.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Alert resolution pipeline will appear here as alerts are processed.
+                  </p>
+                ) : (
+                  <ChartContainer
+                    config={funnelChartConfig}
+                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                  >
+                    <BarChart
+                      data={alertFunnelData}
+                      layout="vertical"
+                      margin={{ left: 60, right: 4, top: 12, bottom: 4 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                      <XAxis type="number" tickLine={false} axisLine={false} />
+                      <YAxis
+                        type="category"
+                        dataKey="stage"
+                        tickLine={false}
+                        axisLine={false}
+                        width={55}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar
+                        dataKey="count"
+                        radius={[0, 8, 8, 0]}
+                        onClick={(data) => handleFunnelDrilldown(data.stage)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        {alertFunnelData.map((entry, index) => (
+                          <Cell
+                            key={`funnel-${index}`}
+                            fill={`var(--color-${entry.stage})`}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </ChartContainer>
                 )}
               </div>
@@ -1280,6 +1703,119 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analytics Drill-down Dialog */}
+      <Dialog
+        open={analyticsDrilldown !== null}
+        onOpenChange={open => {
+          if (!open) {
+            setAnalyticsDrilldown(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>{analyticsDrilldown?.title || "Analytics Details"}</DialogTitle>
+            <DialogDescription>
+              {analyticsDrilldown?.type === "devices"
+                ? "Click 'View on Map' to see device location"
+                : "Click 'View on Map' to see alert location"}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            {analyticsDrilldown?.rows && analyticsDrilldown.rows.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {analyticsDrilldown.type === "devices" ? (
+                      <>
+                        <TableHead>Device ID</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Network</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </>
+                    ) : (
+                      <>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Severity</TableHead>
+                        <TableHead>Device ID</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {analyticsDrilldown.rows.map((row, index) => (
+                    <TableRow key={index}>
+                      {analyticsDrilldown.type === "devices" ? (
+                        <>
+                          <TableCell className="font-mono text-xs">
+                            {row.deviceId || "N/A"}
+                          </TableCell>
+                          <TableCell className="text-xs capitalize">
+                            {row.nodeStatus || "Unknown"}
+                          </TableCell>
+                          <TableCell className="text-xs">{row.networkType || "N/A"}</TableCell>
+                          <TableCell className="text-xs">
+                            {row.latitude && row.longitude
+                              ? `${row.latitude}, ${row.longitude}`
+                              : "Unknown"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setLocation(`/map?deviceId=${row.deviceId}`);
+                                setAnalyticsDrilldown(null);
+                              }}
+                            >
+                              View on Map
+                            </Button>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(row.timestamp).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium">
+                            {row.alertType || "Unknown"}
+                          </TableCell>
+                          <TableCell className="text-xs capitalize">
+                            {row.severity || "Unknown"}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {row.deviceId || "N/A"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setLocation(`/map?deviceId=${row.deviceId}`);
+                                setAnalyticsDrilldown(null);
+                              }}
+                            >
+                              View on Map
+                            </Button>
+                          </TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                <p className="text-sm">No data available</p>
+              </div>
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>
