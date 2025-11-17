@@ -41,6 +41,17 @@ import {
   Cell,
   Area,
   AreaChart,
+  RadialBar,
+  RadialBarChart,
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Treemap,
+  Scatter,
+  ScatterChart,
+  ZAxis,
 } from "recharts";
 import { toast as sonnerToast } from "sonner";
 import {
@@ -133,7 +144,7 @@ export default function Dashboard() {
     refetchInterval: 15000,
     refetchIntervalInBackground: true,
   });
-  const { data: deviceStats, isLoading: devicesLoading } =
+  const { data: deviceStats, isLoading: deviceStatsLoading } =
     trpc.devices.getStatistics.useQuery(undefined, {
       refetchInterval: 15000,
       refetchIntervalInBackground: true,
@@ -143,14 +154,15 @@ export default function Dashboard() {
       refetchInterval: 15000,
       refetchIntervalInBackground: true,
     });
-  const { data: devices } = trpc.devices.getAll.useQuery(undefined, {
+  const { data: devices, isLoading: devicesLoading } = trpc.devices.getAll.useQuery(undefined, {
     refetchInterval: 15000,
     refetchIntervalInBackground: true,
   });
-  const { data: activeAlerts } = trpc.alerts.getActive.useQuery(undefined, {
-    refetchInterval: 10000,
-    refetchIntervalInBackground: true,
-  });
+  const { data: activeAlerts, isLoading: activeAlertsLoading } =
+    trpc.alerts.getActive.useQuery(undefined, {
+      refetchInterval: 10000,
+      refetchIntervalInBackground: true,
+    });
   const { data: baltimoreData, isLoading: baltimoreLoading } =
     trpc.baltimore.getRecent.useQuery(
       {
@@ -172,6 +184,24 @@ export default function Dashboard() {
     refetchInterval: 30000,
     refetchIntervalInBackground: true,
   });
+
+  // Client-side derived KPI metrics (to match map/device list exactly)
+  const totalDevices = devices?.length ?? 0;
+  const onlineDevices = useMemo(
+    () =>
+      (devices ?? []).filter(
+        d => (d.nodeStatus ?? "").toString().toUpperCase() === "ONLINE",
+      ).length,
+    [devices],
+  );
+  const offlineDevices = useMemo(
+    () =>
+      (devices ?? []).filter(
+        d => (d.nodeStatus ?? "").toString().toUpperCase() !== "ONLINE",
+      ).length,
+    [devices],
+  );
+  const activeAlertCount = activeAlerts?.length ?? 0;
 
   // AI assistant state
   const [chatMessages, setChatMessages] = useState<Message[]>([
@@ -466,6 +496,13 @@ export default function Dashboard() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
 
+  // Analytics chart drill-down state
+  const [analyticsDrilldown, setAnalyticsDrilldown] = useState<{
+    title: string;
+    type: "devices" | "alerts";
+    rows: any[];
+  } | null>(null);
+
   const selectedDevice = useMemo(
     () => devices?.find(d => d.deviceId === selectedDeviceId) ?? null,
     [devices, selectedDeviceId],
@@ -601,17 +638,17 @@ export default function Dashboard() {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Devices */}
-          <Card className="glass-gold transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(255,199,44,0.4)]">
+          <Card className="group glass-gold transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(255,199,44,0.4)] hover:border-primary/70">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
-              <Network className="h-4 w-4 text-primary" />
+              <Network className="h-4 w-4 text-primary group-hover:scale-110 group-hover:text-primary/90 transition-transform" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
+              <div className="text-3xl font-bold origin-bottom-left transition-transform duration-300 group-hover:scale-110">
                 {devicesLoading ? (
                   <div className="h-9 w-20 shimmer rounded" />
                 ) : (
-                  <AnimatedNumber value={deviceStats?.total || 0} />
+                  <AnimatedNumber value={totalDevices} />
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -621,39 +658,39 @@ export default function Dashboard() {
           </Card>
 
           {/* Online Devices */}
-          <Card className="glass transition-all duration-300 hover:-translate-y-1 hover:border-chart-1/60 hover:shadow-lg">
+          <Card className="group glass transition-all duration-300 hover:-translate-y-1 hover:border-chart-1/80 hover:shadow-[0_0_24px_rgba(52,211,153,0.45)]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Online Devices</CardTitle>
-              <Activity className="h-4 w-4 text-chart-1" />
+              <Activity className="h-4 w-4 text-chart-1 group-hover:scale-110 transition-transform" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-chart-1">
+              <div className="text-3xl font-bold text-chart-1 origin-bottom-left transition-transform duration-300 group-hover:scale-110">
                 {devicesLoading ? (
                   <div className="h-9 w-20 shimmer rounded" />
                 ) : (
-                  <AnimatedNumber value={deviceStats?.online || 0} />
+                  <AnimatedNumber value={onlineDevices} />
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {deviceStats?.total
-                  ? `${Math.round((deviceStats.online / deviceStats.total) * 100)}% operational`
+                {totalDevices
+                  ? `${Math.round((onlineDevices / totalDevices) * 100)}% operational`
                   : "0% operational"}
               </p>
             </CardContent>
           </Card>
 
           {/* Active Alerts */}
-          <Card className="glass transition-all duration-300 hover:-translate-y-1 hover:border-chart-3/60 hover:shadow-lg">
+          <Card className="group glass transition-all duration-300 hover:-translate-y-1 hover:border-chart-3/80 hover:shadow-[0_0_24px_rgba(248,113,113,0.45)]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-chart-3" />
+              <AlertTriangle className="h-4 w-4 text-chart-3 group-hover:scale-110 transition-transform" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-chart-3">
-                {alertsLoading ? (
+              <div className="text-3xl font-bold text-chart-3 origin-bottom-left transition-transform duration-300 group-hover:scale-110">
+                {activeAlertsLoading ? (
                   <div className="h-9 w-20 shimmer rounded" />
                 ) : (
-                  <AnimatedNumber value={alertStats?.active || 0} />
+                  <AnimatedNumber value={activeAlertCount} />
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Requiring attention</p>
@@ -1024,10 +1061,11 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">Total Coverage</span>
                     <span className="text-primary font-bold">
-                      {deviceStats?.total
-                        ? `${Math.round((deviceStats.online / deviceStats.total) * 100)}%`
+                      {totalDevices
+                        ? `${Math.round((onlineDevices / totalDevices) * 100)}%`
                         : "0%"}
                     </span>
+
                   </div>
                 </div>
               </div>

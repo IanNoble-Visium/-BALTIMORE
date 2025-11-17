@@ -94,16 +94,10 @@ export function MapboxMap({
         source: "devices",
         maxzoom: 14,
         paint: {
-          // Increase the heatmap weight based on point count
-          "heatmap-weight": [
-            "interpolate",
-            ["linear"],
-            ["get", "point_count"],
-            0,
-            0,
-            50,
-            1,
-          ],
+          // Weight each device equally and drive intensity by zoom level so we don't
+          // rely on cluster-only properties like `point_count` (which caused errors
+          // when rendering unclustered points).
+          "heatmap-weight": 1,
           // Increase the heatmap color weight by zoom level
           "heatmap-intensity": [
             "interpolate",
