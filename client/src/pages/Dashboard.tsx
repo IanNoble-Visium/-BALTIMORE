@@ -968,7 +968,7 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
               {/* Incident Timeline */}
               <div className="space-y-1.5">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
@@ -1062,7 +1062,43 @@ export default function Dashboard() {
                       dataKey="size"
                       nameKey="name"
                       stroke="#020617"
-                      fill={BALTIMORE_COLORS.primary}
+                      content={({ x, y, width, height, payload }) => {
+                        if (!payload) return null;
+                        const name = payload.name || "Unknown";
+                        // Map alert types to colors from typeChartConfig
+                        const colorMap: Record<string, string> = {
+                          "Power Loss": BALTIMORE_COLORS.accentOrange,
+                          "Sudden Tilt": BALTIMORE_COLORS.accentBlue,
+                          "Low Voltage": BALTIMORE_COLORS.accentGreen,
+                        };
+                        const fillColor = colorMap[name] || BALTIMORE_COLORS.accentRed;
+                        return (
+                          <g>
+                            <rect
+                              x={x}
+                              y={y}
+                              width={width}
+                              height={height}
+                              fill={fillColor}
+                              stroke="#020617"
+                              style={{ cursor: "pointer" }}
+                              onClick={() => handleTypeDrilldown(name)}
+                            />
+                            {width > 50 && height > 30 && (
+                              <text
+                                x={x + width / 2}
+                                y={y + height / 2}
+                                textAnchor="middle"
+                                fill="#fff"
+                                fontSize={12}
+                                fontWeight="medium"
+                              >
+                                {name}
+                              </text>
+                            )}
+                          </g>
+                        );
+                      }}
                     />
                   </ChartContainer>
                 )}
@@ -1356,7 +1392,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Recent Alerts */}
-          <Card>
+          <Card className="xl:row-span-1">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -1425,7 +1461,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Network Status */}
-          <Card>
+          <Card className="xl:col-start-3 xl:row-start-2">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Network className="h-4 w-4 text-primary" />
@@ -1496,7 +1532,7 @@ export default function Dashboard() {
           </Card>
 
           {/* AI Assistant */}
-          <Card className="xl:row-span-2">
+          <Card className="xl:col-span-2 xl:row-start-2">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center gap-2 text-base">
