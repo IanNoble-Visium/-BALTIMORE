@@ -23,7 +23,6 @@ import {
 } from "recharts";
 import { useMemo, useState } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { trpc } from "@/lib/trpc";
 import { motion } from "framer-motion";
 import {
   Dialog,

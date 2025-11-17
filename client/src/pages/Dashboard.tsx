@@ -131,6 +131,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const utils = trpc.useUtils();
 
   // Redirect to landing if authenticated is required via OAuth
   useEffect(() => {
@@ -379,12 +380,24 @@ export default function Dashboard() {
   }, [alertHistory]);
 
   const alertTypeDistribution = useMemo(() => {
-    if (!alertStats?.byType) return [] as { type: string; count: number }[];
-    return alertStats.byType.map(row => ({
-      type: row.alertType || "Unknown",
-      count: Number(row.count) || 0,
-    }));
-  }, [alertStats]);
+    if (alertStats?.byType && alertStats.byType.length > 0) {
+      return alertStats.byType.map(row => ({
+        type: row.alertType || "Unknown",
+        count: Number(row.count) || 0,
+      }));
+    }
+
+    if (alertHistory && alertHistory.length > 0) {
+      const counts = new Map<string, number>();
+      for (const alert of alertHistory) {
+        const key = (alert.alertType ?? "Unknown") || "Unknown";
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      return Array.from(counts.entries()).map(([type, count]) => ({ type, count }));
+    }
+
+    return [] as { type: string; count: number }[];
+  }, [alertStats, alertHistory]);
 
   const severityDistribution = useMemo(() => {
     if (!alertStats?.bySeverity) return [] as { severity: string; count: number }[];
@@ -643,11 +656,34 @@ export default function Dashboard() {
 
   // Seed data if needed (for demo purposes)
   const seedDataMutation = trpc.admin.seedData.useMutation({
-    onSuccess: data => {
+    async onSuccess(data) {
       console.log("[Dashboard] Seed data mutation succeeded:", data);
+      sonnerToast.success("Database seeded", {
+        description: "Charts and device data have been refreshed.",
+      });
+
+      try {
+        await Promise.all([
+          utils.devices.getAll.invalidate(),
+          utils.devices.getStatistics.invalidate(),
+          utils.alerts.getAll.invalidate(),
+          utils.alerts.getActive.invalidate(),
+          utils.alerts.getStatistics.invalidate(),
+          utils.kpis.getLatest.invalidate(),
+          utils.kpis.getHistory.invalidate(),
+          utils.baltimore.getRecent.invalidate(),
+        ]);
+      } catch (err) {
+        console.warn("[Dashboard] Failed to invalidate caches after seeding", err);
+      }
+
+      setAdminDialogOpen(false);
     },
     onError: error => {
       console.error("[Dashboard] Seed data mutation failed:", error);
+      sonnerToast.error("Database seed failed", {
+        description: error.message ?? "Unable to populate demo data.",
+      });
     },
   });
   
@@ -725,6 +761,56 @@ export default function Dashboard() {
       type: "devices",
       rows: filtered,
     });
+  };
+
+  const AlertTreemapContent = (props: any) => {
+    const { x, y, width, height, payload } = props;
+    if (!payload) return null;
+
+    const name: string = payload.name || "Unknown";
+    const colorMap: Record<string, string> = {
+      "Power Loss": BALTIMORE_COLORS.accentOrange,
+      "Sudden Tilt": BALTIMORE_COLORS.accentBlue,
+      "Low Voltage": BALTIMORE_COLORS.accentGreen,
+    };
+    const fillColor = colorMap[name] || BALTIMORE_COLORS.accentRed;
+
+    return (
+      <g>
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={fillColor}
+          stroke="#020617"
+          style={{ cursor: "pointer" }}
+          onClick={(e: any) => {
+            e.stopPropagation();
+            handleTypeDrilldown(name);
+          }}
+          onMouseEnter={(e: any) => {
+            e.currentTarget.style.opacity = "0.8";
+          }}
+          onMouseLeave={(e: any) => {
+            e.currentTarget.style.opacity = "1";
+          }}
+        />
+        {width > 30 && height > 18 && (
+          <text
+            x={x + width / 2}
+            y={y + height / 2}
+            textAnchor="middle"
+            fill="#fff"
+            fontSize={12}
+            fontWeight="medium"
+            pointerEvents="none"
+          >
+            {name}
+          </text>
+        )}
+      </g>
+    );
   };
 
   const handleFunnelDrilldown = (stage: string) => {
@@ -1115,53 +1201,7 @@ export default function Dashboard() {
                       dataKey="size"
                       nameKey="name"
                       stroke="#020617"
-                      content={({ x, y, width, height, payload }) => {
-                        if (!payload) return null;
-                        const name = payload.name || "Unknown";
-                        // Map alert types to colors from typeChartConfig
-                        const colorMap: Record<string, string> = {
-                          "Power Loss": BALTIMORE_COLORS.accentOrange,
-                          "Sudden Tilt": BALTIMORE_COLORS.accentBlue,
-                          "Low Voltage": BALTIMORE_COLORS.accentGreen,
-                        };
-                        const fillColor = colorMap[name] || BALTIMORE_COLORS.accentRed;
-                        return (
-                          <g>
-                            <rect
-                              x={x}
-                              y={y}
-                              width={width}
-                              height={height}
-                              fill={fillColor}
-                              stroke="#020617"
-                              style={{ cursor: "pointer" }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleTypeDrilldown(name);
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.opacity = "0.8";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.opacity = "1";
-                              }}
-                            />
-                            {width > 30 && height > 18 && (
-                              <text
-                                x={x + width / 2}
-                                y={y + height / 2}
-                                textAnchor="middle"
-                                fill="#fff"
-                                fontSize={12}
-                                fontWeight="medium"
-                                pointerEvents="none"
-                              >
-                                {name}
-                              </text>
-                            )}
-                          </g>
-                        );
-                      }}
+                      content={<AlertTreemapContent />}
                     />
                   </ChartContainer>
                 )}
@@ -1190,7 +1230,7 @@ export default function Dashboard() {
                         stroke={BALTIMORE_COLORS.primary}
                         fill={BALTIMORE_COLORS.primary}
                         fillOpacity={0.5}
-                        onClick={(data) => handleSeverityDrilldown(data.severity)}
+                        onClick={(entry: any) => handleSeverityDrilldown(entry.severity)}
                         style={{ cursor: "pointer" }}
                       />
                       <ChartTooltip content={<ChartTooltipContent />} />
