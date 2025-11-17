@@ -816,8 +816,8 @@ export default function Dashboard() {
       </header>
 
       {/* Main Content */}
-      <main className="container py-6 space-y-6">
-        <Breadcrumb className="mb-4 hidden md:block">
+      <main className="container py-4 space-y-4">
+        <Breadcrumb className="mb-2 hidden md:block">
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbPage>Dashboard</BreadcrumbPage>
@@ -851,7 +851,7 @@ export default function Dashboard() {
         )}
 
         {/* KPI Cards */}
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
           <div className="text-xs text-muted-foreground">
             System KPIs for Baltimore. Use the speaker icon for a narrated status update.
           </div>
@@ -876,7 +876,7 @@ export default function Dashboard() {
           </TooltipProvider>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {/* Total Devices */}
           <Card className="group glass-gold transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(255,199,44,0.4)] hover:border-primary/70">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -960,28 +960,28 @@ export default function Dashboard() {
         </div>
 
         {/* Analytics Overview */}
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
+        <Card className="mt-3">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="h-4 w-4 text-primary" />
               Baltimore Analytics Overview
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-6 lg:grid-cols-2">
+          <CardContent className="pt-0">
+            <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
               {/* Incident Timeline */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Alert Volume (Last 2 Weeks)
                 </p>
                 {incidentTimeline.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Alert history will appear here as incidents are generated.
                   </p>
                 ) : (
                   <ChartContainer
                     config={incidentChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <LineChart
                       data={incidentTimeline}
@@ -1010,18 +1010,18 @@ export default function Dashboard() {
               </div>
 
               {/* Severity Radial Mix */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Severity Radial Mix
                 </p>
                 {severityRadialData.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Severity distribution will appear here once alerts exist.
                   </p>
                 ) : (
                   <ChartContainer
                     config={severityChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <RadialBarChart
                       data={severityRadialData}
@@ -1044,18 +1044,18 @@ export default function Dashboard() {
               </div>
 
               {/* Alert Type Treemap */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Alert Type Treemap
                 </p>
                 {alertTreemapData.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Alert type treemap will appear as alerts accumulate.
                   </p>
                 ) : (
                   <ChartContainer
                     config={typeChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <Treemap
                       data={alertTreemapData}
@@ -1069,18 +1069,18 @@ export default function Dashboard() {
               </div>
 
               {/* Severity Radar Profile */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Severity Radar Profile
                 </p>
                 {radarSeverityData.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Radar profile will appear here once alerts exist.
                   </p>
                 ) : (
                   <ChartContainer
                     config={severityChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <RadarChart data={radarSeverityData}>
                       <PolarGrid />
@@ -1101,18 +1101,18 @@ export default function Dashboard() {
               </div>
 
               {/* Alert Volume Scatter */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Alert Volume Scatter
                 </p>
                 {scatterTimelineData.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Alert scatter will appear here as incidents are generated.
                   </p>
                 ) : (
                   <ChartContainer
                     config={incidentChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <ScatterChart margin={{ left: 4, right: 4, top: 12, bottom: 4 }}>
                       <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
@@ -1141,18 +1141,18 @@ export default function Dashboard() {
               </div>
 
               {/* Device Status Distribution (Pie) */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Device Status Distribution
                 </p>
                 {deviceStatusDistribution.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Device status distribution will appear here once devices are loaded.
                   </p>
                 ) : (
                   <ChartContainer
                     config={deviceStatusChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <PieChart>
                       <Pie
@@ -1180,18 +1180,18 @@ export default function Dashboard() {
               </div>
 
               {/* Network Coverage & Capacity (Nested RadialBar) */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Network Coverage & Capacity
                 </p>
                 {networkCoverageData.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Network coverage data will appear here once devices are loaded.
                   </p>
                 ) : (
                   <ChartContainer
                     config={networkChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <RadialBarChart
                       data={networkCoverageData}
@@ -1220,18 +1220,18 @@ export default function Dashboard() {
               </div>
 
               {/* Alerts vs Resolution (Composed) */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Alerts vs Resolution
                 </p>
                 {composedTimelineData.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Combined alert and resolution trend will appear as data accumulates.
                   </p>
                 ) : (
                   <ChartContainer
                     config={composedChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <ComposedChart
                       data={composedTimelineData}
@@ -1279,18 +1279,18 @@ export default function Dashboard() {
               </div>
 
               {/* Alert Resolution Pipeline (Funnel) */}
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
                   Alert Resolution Pipeline
                 </p>
                 {alertFunnelData.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground py-8 text-center">
                     Alert resolution pipeline will appear here as alerts are processed.
                   </p>
                 ) : (
                   <ChartContainer
                     config={funnelChartConfig}
-                    className="h-56 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
+                    className="h-44 rounded-lg border border-primary/40 bg-[#111111] shadow-lg/40"
                   >
                     <BarChart
                       data={alertFunnelData}
@@ -1329,18 +1329,18 @@ export default function Dashboard() {
         </Card>
 
         {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {/* Map Section */}
           <Card className="lg:col-span-2 xl:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <MapPin className="h-4 w-4 text-primary" />
                 Baltimore Device Map
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <MapboxMap
-                className="mt-2"
+                className="mt-0"
                 devices={devices ?? []}
                 onDeviceClick={id => {
                   setSelectedDeviceId(id);
@@ -1357,10 +1357,10 @@ export default function Dashboard() {
 
           {/* Recent Alerts */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-chart-3" />
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertTriangle className="h-4 w-4 text-chart-3" />
                   Recent Alerts
                 </CardTitle>
                 <TooltipProvider delayDuration={150}>
@@ -1384,13 +1384,13 @@ export default function Dashboard() {
                 </TooltipProvider>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="pt-0">
+              <div className="space-y-2">
                 {activeAlerts && activeAlerts.length > 0 ? (
                   activeAlerts.slice(0, 5).map(alert => (
                     <div
                       key={alert.id}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border border-border"
+                      className="flex items-start gap-2 p-2 rounded-lg bg-muted/50 border border-border"
                     >
                       <div
                         className={`w-2 h-2 rounded-full mt-2 ${
@@ -1426,14 +1426,14 @@ export default function Dashboard() {
 
           {/* Network Status */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Network className="h-5 w-5 text-primary" />
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Network className="h-4 w-4 text-primary" />
                 Network Status
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="pt-0">
+              <div className="space-y-3">
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">LTE Devices</span>
@@ -1497,10 +1497,10 @@ export default function Dashboard() {
 
           {/* AI Assistant */}
           <Card className="xl:row-span-2">
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-primary" />
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Brain className="h-4 w-4 text-primary" />
                   AI Command Assistant
                 </CardTitle>
                 <TooltipProvider delayDuration={150}>
@@ -1524,12 +1524,12 @@ export default function Dashboard() {
                 </TooltipProvider>
               </div>
             </CardHeader>
-            <CardContent className="pt-2">
+            <CardContent className="pt-0">
               <AIChatBox
                 messages={chatMessages}
                 onSendMessage={handleChatSend}
                 isLoading={chatMutation.isPending}
-                height={360}
+                height={320}
                 placeholder="Ask about Baltimore devices, alerts, and KPIs..."
                 emptyStateMessage="Ask a question about the Baltimore Smart City deployment."
                 suggestedPrompts={[
@@ -1544,13 +1544,13 @@ export default function Dashboard() {
 
           {/* Baltimore Data Highlights */}
           <Card className="lg:col-span-2 xl:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-primary" />
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Database className="h-4 w-4 text-primary" />
                 Baltimore Data Highlights
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               {baltimoreLoading ? (
                 <div className="space-y-2">
                   <div className="h-4 w-1/3 shimmer rounded" />
@@ -1595,7 +1595,7 @@ export default function Dashboard() {
         </div>
 
         {/* Footer Info */}
-        <div className="text-center text-sm text-muted-foreground pt-4">
+        <div className="text-center text-xs text-muted-foreground pt-2 pb-2">
           <p>Powered by Visium Technologies • World Wide Technology • Ubicquia</p>
         </div>
       </main>
